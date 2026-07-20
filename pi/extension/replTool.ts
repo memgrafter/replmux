@@ -32,8 +32,8 @@ const replManageSchema = Type.Object({
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
-const DEFAULT_CLI = "~/code/prototyping/replpy_shared/jupyter_repl_cli.py";
-const DEFAULT_PYTHON = "~/code/prototyping/replpy_shared/.venv/bin/python";
+const DEFAULT_CLI = "~/code/multirepl/jupyter_repl_cli.py";
+const DEFAULT_PYTHON = "~/code/multirepl/.venv/bin/python";
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
