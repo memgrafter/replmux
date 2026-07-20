@@ -7,12 +7,6 @@ dependencies = [
     "pyzmq",
 ]
 
-[project.optional-dependencies]
-test = [
-    "ipykernel",
-    "jupyter-client",
-]
-
 [project.scripts]
 jupyter-repl = "jupyter_repl_cli:main"
 
