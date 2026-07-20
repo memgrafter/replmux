@@ -1,77 +1,111 @@
-## Jupyter REPL Client — Minimal Extract from jupyter_client (~300 lines, deps: pyzmq only)### What it is`jupyter_repl.py` is a single-file Jupyter protocol client extracted from `jupyter_client` (which pulls in tornado, traitlets, jupyter_core, python-dateutil). It connects to any running Jupyter kernel (ipykernel, xeus-kernel, IRkernel, julia-kernel, etc.) and lets you execute code, get rich output, interrupt, tab-complete, inspect, and monitor heartbeat.### Quick start```python
+## multirepl — Multiplayer Python for Agents
+
+### What it is
+
+A Jupyter kernel system built for agent use. Persistent Python environments, shared namespaces for multiplayer, zero subprocess overhead per call. Replaces the 30+ transitive deps of `jupyter_client` with pyzmq-only components.
+
+### Architecture
+
+```
+pi extension (replTool.ts)
+├── repl: executes code via Unix socket → minimal_kernel_clean.py
+└── repl-manage: manages kernels via CLI → jupyter_repl_cli.py
+
+minimal_kernel_clean.py
+├── ZMQ channels (shell, iopub, control, heartbeat) — Jupyter protocol
+├── Unix socket server — direct JSON access for extension
+└── Persistent Python namespace — shared across all callers
+
+jupyter_repl_cli.py
+├── create: spawns kernel, waits for connection file, writes PID
+├── list: scans ~/.jupyter-repl/kernels/ for .json files
+├── connect: reads and prints <name>.json
+└── delete: graceful shutdown via jupyter_repl.py + fallback kill
+
+jupyter_repl.py (~300 lines)
+└── KernelClient: Jupyter protocol client (execute, interrupt, complete, inspect, shutdown)
+```
+
+### Key design decisions
+
+- **No subprocess per execute** — extension talks kernel Unix socket directly (JSON in/out)
+- **Explicit kernel names** — `repl` requires `name` param, no implicit "active kernel"
+- **Multiplayer by default** — shared namespace, agents coordinate themselves
+- **Minimal kernel, not ipykernel** — no magics, no async, no rich display hooks. exec/eval in a persistent dict.
+- **Expression vs exec** — AST dispatch: single expressions use eval (return value), statements use exec (no value)
+- **RLock, not Lock** — socket handler calls do_execute which also locks, needs reentrant lock
+
+### File roles
+
+| File | Role | Deps |
+|------|------|------|
+| `minimal_kernel_clean.py` | Kernel: ZMQ + socket server, persistent namespace | pyzmq |
+| `jupyter_repl_cli.py` | CLI: lifecycle management | stdlib + jupyter_repl (import) |
+| `jupyter_repl.py` | Client: Jupyter protocol (~300 lines) | pyzmq |
+| `shared_repl_socket.py` | **DEAD** — kernel has built-in socket now | — |
+| `pi/extension/replTool.ts` | pi extension: repl + repl-manage tools | pi-coding-agent, pi-tui |
+
+### Kernel socket protocol
+
+The kernel's Unix socket (`~/.jupyter-repl/kernels/<name>.sock`) speaks JSON:
+
+**Request**: `{ "code": "x = 42" }`
+**Response**: `{ "ok": true, "mode": "exec|eval", "code": "...", "result": "42", "stdout": "", "stderr": "", "error": null }`
+
+- `mode: "eval"` — single expression, result is repr of value
+- `mode: "exec"` — statements, result is null
+- `error` set on exception, `ok` is false
+- Socket path stored in connection JSON: `socket_path` field
+
+### Extension rendering
+
+The extension defines `renderCall` and `renderResult` for TUI display:
+
+- **Call**: `repl: <name>` + code with `>>>`/`...` prefixes (Python REPL style)
+- **Result**: `→ <value>` (eval), `(ok)` (exec), `✗ <error>` (errors)
+- Uses `_onUpdate` to send label early before args are fully parsed
+
+### Connection file format
+
+`~/.jupyter-repl/kernels/<name>.json`:
+```json
+{
+  "shell_port": 60462,
+  "iopub_port": 60463,
+  "control_port": 60464,
+  "hb_port": 60465,
+  "stdin_port": 0,
+  "ip": "127.0.0.1",
+  "key": "hex-encoded-hmac-key",
+  "transport": "tcp",
+  "signature_scheme": "hmac-sha256",
+  "kernel_name": "python3",
+  "socket_path": "/path/to/kernels/<name>.sock"
+}
+```
+
+### Future: Rust rewrite
+
+Ticket `pri-fs68` — single Rust binary replaces CLI + client. Kernel stays Python (or gets its own Rust rewrite later). ZMQ via `zmq-build` (static libzmq, no system dep).
+
+### Testing
+
+```bash
+# Start kernel
+jupyter-repl create test-kernel
+
+# Execute via Python client
+python -c "
 from jupyter_repl import KernelClient
 import json
-
-# Connect to a running kernel via its connection file
-with open("/tmp/kernel-123.json") as f:
+with open('~/.jupyter-repl/kernels/test-kernel.json') as f:
     conn = json.load(f)
-client = KernelClient(conn)
+c = KernelClient(conn)
+r, o = c.execute('x = 42; x')
+print(r, o)
+c.close()
+"
 
-# Execute code, get reply + IOPub output
-reply, outputs = client.execute("print(1+1)", timeout=30)
-print(outputs)  # [{"msg_type": "stream", "content": {"name": "stdout", "text": "2\n"}}, ...]
-
-# Rich display data (e.g., a DataFrame)
-reply, outputs = client.execute("pd.DataFrame({'a': [1,2]})", timeout=30)
-for msg in outputs:
-    if msg["msg_type"] in ("execute_result", "display_data"):
-        print(msg["content"]["data"].keys())  # dict_keys(['text/plain', 'text/html', ...])
-
-# Interrupt running code
-client.interrupt()
-
-# Tab completion
-reply = client.complete("pri", timeout=5)
-print(reply["content"]["matches"])
-
-# Inspect object
-reply = client.inspect("print", detail_level=1, timeout=5)
-print(reply["content"]["docstring"])
-
-# Heartbeat check
-client.start_heartbeat()
-print(client.is_alive())  # True if kernel is responsive
-client.stop_heartbeat()
-
-# Shutdown
-client.shutdown(restart=False)
+# Cleanup
+jupyter-repl delete test-kernel
 ```
-### API surface- **`KernelClient(conn_info)`** — constructor; `conn_info` is a dict from the kernel's JSON connection file (keys: `shell_port`, `iopub_port`, `stdin_port`, `control_port`, `hb_port`, `ip`, `key`, `transport`, `signature_scheme`).
-- **`execute(code, *, silent=False, store_history=True, user_expressions=None, allow_stdin=True, stop_on_error=True, timeout=30)`** — returns `(reply, iopub_messages)`. Blocks until execution completes.
-- **`interrupt()`** — sends `interrupt_request` on control channel.
-- **`complete(code, cursor_pos=None, timeout=30)`** — tab completion request/reply.
-- **`inspect(code, cursor_pos=None, detail_level=0, timeout=30)`** — object inspection.
-- **`kernel_info(timeout=30)`** — kernel info request/reply.
-- **`is_complete(code, timeout=5)`** — is the code complete and ready to execute?
-- **`shutdown(restart=False, timeout=10)`** — graceful shutdown via control channel.
-- **`start_heartbeat() / stop_heartbeat()`** — start/stop heartbeat thread.
-- **`is_alive()`** — returns `True` if heartbeat is beating.
-- **`close()`** — close all sockets and context.
-
-### Design notes- No managers, no launchers, no provisioners — you connect to an *already-running* kernel.
-- The connection file schema is standard Jupyter: 5 ports + HMAC key + signature scheme.
-- HMAC signing uses `hmac-sha256` by default (same as jupyter_client). Set `key=b""` in conn_info to disable (insecure).
-- The heartbeat runs in a daemon thread (like the original HBChannel), not an event loop.
-- IOPub messages are collected during `execute()` until the `status: idle` message arrives.
-- The reply is matched by `parent_header.msg_id` to ensure correct request/reply pairing.
-
-### What was left out (and why)- **Kernel lifecycle** — start/stop kernels is a manager concern, not a client concern.
-- **Protocol version adaptation** — protocol v5.4 is the current standard; adaptation adds complexity for minimal benefit.
-- **SSH tunneling** — if you need SSH, tunnel at the network layer.
-- **Auto-restart** — add it in your own code if needed.
-- **Threaded client** — blocking is simpler and sufficient for agent use.
-- **orjson/msgpack serialization** — standard `json` is fast enough and has zero deps.
-
-### Testing with a real kernel```bash
-# Start a kernel and note the connection file path
-jupyter console --kernel python3 --existing
-# or in Python:
-python -c "from jupyter_client import KernelManager; km = KernelManager(); km.start_kernel(); print(km.connection_file)"
-# Then use jupyter_repl.py to connect to it
-```
-### File structure```njupyter_repl.py   # ~300 lines, single file, deps: pyzmq only
-README.md        # human-facing docs
-AGENTS.md        # agent-facing instructions (this file)
-```
-
-</project_instructions>

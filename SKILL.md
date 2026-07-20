@@ -1,138 +1,117 @@
 ---
-name: jupyter-repl
-description: Give agents persistent Python environments across turns. Start, connect to, and manage Jupyter kernels with a CLI and a single-file client (pyzmq only).
+name: multirepl
+description: Multiplayer Python for agents. Persistent Jupyter kernels with a pi extension — zero subprocess overhead per call, shared namespaces, full protocol access.
 ---
 
-Start a named kernel in one command, connect from Python code in another — no heavy dependencies, no config cruft.
+Give agents persistent Python environments across turns via Jupyter kernels. Managed by a pi extension — `repl` for code execution, `repl-manage` for lifecycle. Shared namespaces for multiplayer, isolated per kernel.
 
 ## Why use it
 
-- **Persistent state across turns** — variables, imports, and execution history survive between agent interactions
-- **Zero cognitive overhead** — `jupyter-repl create my-agent` is all the setup needed; the client is one import
-- **Multiple isolated environments** — each agent gets its own kernel namespace; no interference
-- **Only pyzmq required** — no tornado, traitlets, jupyter_core pulling in 30+ transitive deps
+- **Persistent state across turns** — variables, imports, execution history survive between agent interactions
+- **Zero subprocess overhead** — `repl` talks to the kernel directly over a Unix socket (no Python per call)
+- **Multiplayer** — multiple agents share the same kernel namespace, read/write state freely
+- **Minimal kernel** — lightweight Python kernel (~300 lines, pyzmq only), no ipykernel bloat
+- **Full Jupyter protocol** — rich output, mime bundles, tab completion, inspection, interrupt
 
 ## When to use
 
-- An agent needs to run Python code and keep state between turns (variables, imports, results)
-- You need rich output (mime bundles: text/html, image/png) not just stdout
-- Multiple agents each need their own isolated Python environment
-- You want tab completion, inspection, or interrupt capability
+- An agent needs to run Python code and keep state between turns
+- Multiple agents need to share a Python environment (multiplayer)
+- You need rich output (DataFrames, plots) not just stdout
+- You want a lightweight kernel without ipykernel's 30+ transitive deps
 
 ## When NOT to use
 
 - You only need a one-off subprocess call — `subprocess.run` is simpler
 - You need GPU access or specialized compute — a kernel won't help with resource allocation
-- The code needs to run in a specific virtual environment with custom packages — you'd need to install those into the kernel's env first
+- You need full ipykernel features (magics, async, debugging) — use ipykernel instead
 
 ## Usage
 
-### CLI (kernel lifecycle)
+### pi extension tools
+
+**Execute code** (zero subprocess):
+```
+repl { code: "x = 42", name: "pri-20260720013947" }
+→ pri-20260720013947: x = 42 (ok)
+
+repl { code: "x", name: "pri-20260720013947" }
+→ pri-20260720013947: x → 42
+```
+
+**Manage kernels**:
+```
+repl-manage { action: "create" }                  → auto-generates name (pri-20260720013947)
+repl-manage { action: "create", name: "my-kernel" } → explicit name
+repl-manage { action: "list" }                    → table of running kernels
+repl-manage { action: "connect", name: "my-kernel" } → connection JSON
+repl-manage { action: "delete", name: "my-kernel" } → shuts down
+```
+
+### CLI (standalone)
 
 ```bash
 jupyter-repl create <name>       # start a named kernel
-jupyter-repl list                # show running kernels + status
+jupyter-repl list                # show running kernels
 jupyter-repl connect <name>      # print connection JSON
 jupyter-repl delete <name>       # shut down a kernel
 ```
 
-### Python client
+### Python client library
 
 ```python
 from jupyter_repl import KernelClient
 import json
 
-# Connect via CLI output
-import subprocess
-conn = json.loads(subprocess.run(
-    ['jupyter-repl', 'connect', 'my-agent'],
-    capture_output=True, text=True
-).stdout)
-client = KernelClient(conn)
-
-# Or connect from a connection file directly
-with open('/path/to/kernel.json') as f:
+with open("~/.jupyter-repl/kernels/my-kernel.json") as f:
     conn = json.load(f)
 client = KernelClient(conn)
 
-# Execute code — blocks until done, returns (reply, iopub_messages)
-reply, outputs = client.execute("print(1+1)", timeout=30)
-
-# Rich output — kernels return mime bundles
-reply, outputs = client.execute("x = [1,2,3]; x")
+reply, outputs = client.execute("x = 42; x", timeout=30)
 for msg in outputs:
     if msg["msg_type"] == "execute_result":
         print(msg["content"]["data"]["text/plain"])
-
-# Other protocol messages
-client.complete("pri", timeout=5)       # tab completion
-client.inspect("print", detail_level=1)  # object inspection
-client.kernel_info(timeout=5)           # kernel info
-client.interrupt()                      # interrupt running code
-client.shutdown()                       # graceful shutdown
-
-# Heartbeat
-client.start_heartbeat()
-client.is_alive()  # True if responsive
-client.stop_heartbeat()
-
-client.close()  # clean up sockets
+client.close()
 ```
 
-## Examples
+## Architecture
 
-### Agent with persistent state across turns
+```
+Agent A ──┐
+Agent B ──┼── Unix socket (JSON) ──→ minimal_kernel_clean.py ──→ Python namespace
+Agent C ──┘                          (ZMQ + socket server)
 
-```bash
-# Turn 1: create kernel and set up environment
-jupyter-repl create analysis-bot
-python -c "
-from jupyter_repl import KernelClient
-import json, subprocess
-conn = json.loads(subprocess.run(['jupyter-repl', 'connect', 'analysis-bot'], capture_output=True, text=True).stdout)
-c = KernelClient(conn)
-c.execute('import pandas as pd')
-c.close()
-"
-
-# Turn 2: use the same kernel with state intact
-python -c "
-from jupyter_repl import KernelClient
-import json, subprocess
-conn = json.loads(subprocess.run(['jupyter-repl', 'connect', 'analysis-bot'], capture_output=True, text=True).stdout)
-c = KernelClient(conn)
-r, o = c.execute('df = pd.DataFrame({\"a\": [1,2]}); df')
-for m in o:
-    if m['msg_type'] == 'execute_result':
-        print(m['content']['data']['text/plain'])
-c.close()
-"
-
-# Cleanup
-jupyter-repl delete analysis-bot
+repl-manage ──→ jupyter_repl_cli.py ──→ spawns/manages kernels
 ```
 
-### Multiple agents, isolated environments
+- **Kernel** (`minimal_kernel_clean.py`): Jupyter protocol over ZMQ + direct JSON over Unix socket. Persistent Python namespace.
+- **CLI** (`jupyter_repl_cli.py`): Lifecycle management. Spawns kernels, tracks PIDs, reads connection files.
+- **Client** (`jupyter_repl.py`): ~300 line Jupyter protocol client. Used by CLI for graceful shutdown.
+- **Extension** (`pi/extension/replTool.ts`): pi tools. `repl` talks kernel socket directly. `repl-manage` calls CLI.
 
-```bash
-jupyter-repl create agent-alpha
-jupyter-repl create agent-beta
-# Each has its own namespace — no shared state
-jupyter-repl list
-# NAME               PID        STATUS
-# agent-alpha        12345      running
-# agent-beta         12346      running
+## Multiplayer model
+
+One kernel, multiple agents, shared namespace. Agents read/write freely — coordination is the agent's responsibility, not the kernel's.
+
+```
+Agent A: repl { code: "x = 42", name: "shared" }
+Agent B: repl { code: "x", name: "shared" }     → 42
+Agent B: repl { code: "x = 99", name: "shared" } → (ok)
+Agent A: repl { code: "x", name: "shared" }      → 99
 ```
 
-## Output
+## Output format
 
-- **CLI**: plain text for `list`, JSON for `connect`, status messages for `create`/`delete`
-- **Python client**: `(reply, iopub_messages)` tuples — reply is a protocol message dict, iopub_messages is a list of stream/display_data/status dicts
+- **repl call**: `repl: <kernel-name>` with code prefixed by `>>>` / `...`
+- **repl result**: `→ <value>` (expressions), `(ok)` (exec), `✗ <error>` (errors)
+- **repl-manage**: plain text status, JSON for connect
 
-## How it works (brief)
+## File structure
 
-1. CLI starts `minimal_kernel_clean.py` as a subprocess, writes its connection file to `~/.jupyter-repl/kernels/<name>.json`
-2. Client reads that file, creates ZMQ sockets, and speaks the Jupyter messaging protocol
-3. Connection files carry 5 ports + HMAC key — the client signs messages with it
-
-**Cost**: one subprocess per kernel (lightweight). **Benefit**: persistent state, rich output, full protocol access with only pyzmq as a dependency.
+```
+jupyter_repl_cli.py     # CLI: create/list/connect/delete
+jupyter_repl.py         # Client: ~300 lines, pyzmq only
+minimal_kernel_clean.py # Kernel: ZMQ + Unix socket server
+shared_repl_socket.py   # DEAD — replace with kernel's built-in socket
+pi/extension/           # pi extension (symlink to replTool.ts)
+```
