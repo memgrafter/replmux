@@ -362,19 +362,24 @@ class Kernel:
             old_stdout, old_stderr = sys.stdout, sys.stderr
             error = None
             expression_result = None
-            mode = "exec"
+
+            # Determine mode from AST before execution so errors report correctly
+            import ast as _ast
+            stripped = code.strip()
+            try:
+                tree = _ast.parse(stripped, mode="eval")
+                mode = "eval"
+            except (SyntaxError, ValueError):
+                tree = None
+                mode = "exec"
 
             try:
                 sys.stdout = stdout_capture
                 sys.stderr = stderr_capture
-                import ast as _ast
-                stripped = code.strip()
-                try:
-                    tree = _ast.parse(stripped, mode="eval")
+                if mode == "eval" and tree is not None:
                     self.namespace["_"] = eval(compile(tree, "<repl>", "eval"), self.namespace)
                     expression_result = repr(self.namespace["_"])
-                    mode = "eval"
-                except (SyntaxError, ValueError):
+                else:
                     self.namespace.pop("_", None)
                     exec(compile(stripped, "<repl>", "exec"), self.namespace)
             except Exception:
