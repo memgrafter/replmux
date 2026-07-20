@@ -1,0 +1,18 @@
+[project]
+name = "jupyter-repl"
+version = "0.1.0"
+description = "Minimal Jupyter protocol client (~300 lines, pyzmq only)"
+requires-python = ">=3.12"
+dependencies = [
+    "pyzmq",
+]
+
+[project.optional-dependencies]
+test = [
+    "ipykernel",
+    "jupyter-client",
+]
+
+[project.scripts]
+jupyter-repl = "jupyter_repl_cli:main"
+
