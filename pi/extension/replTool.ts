@@ -1,6 +1,4 @@
 import net from "node:net";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import * as fs from "node:fs";
 import type { ExtensionAPI, ToolDefinition, AgentToolResult, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -8,8 +6,6 @@ import type { ToolRenderContext } from "@earendil-works/pi-coding-agent/core/ext
 import { Text } from "@earendil-works/pi-tui";
 import type { Component } from "@earendil-works/pi-tui";
 import { Type, Static } from "typebox";
-
-const exec = promisify(execFile);
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -26,14 +22,12 @@ const replManageSchema = Type.Object({
 		Type.Literal("connect"),
 	]),
 	name: Type.Optional(Type.String({ description: "[optional] Kernel name. Auto-generated on create if omitted." })),
-	cli: Type.Optional(Type.String({ description: "[optional] Path to jupyter_repl_cli.py" })),
-	python: Type.Optional(Type.String({ description: "[optional] Path to python binary" })),
+	binary: Type.Optional(Type.String({ description: "[optional] Path to the Rust multirepl binary" })),
 });
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
-const DEFAULT_CLI = "~/code/multirepl/jupyter_repl_cli.py";
-const DEFAULT_PYTHON = "~/code/multirepl/.venv/bin/python";
+const DEFAULT_BINARY = process.env.MULTIREPL_BINARY ?? "~/code/multirepl/cli/target/release/multirepl";
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
@@ -48,15 +42,21 @@ function generateKernelName(): string {
 }
 
 async function runCli(
+	pi: ExtensionAPI,
 	action: string,
 	name: string | undefined,
-	cliPath: string,
-	pythonPath: string,
+	binaryPath: string,
+	signal: AbortSignal | undefined,
 ): Promise<{ stdout: string; stderr: string }> {
 	const args = [action];
 	if (name) args.push(name);
-	const { stdout, stderr } = await exec(resolvePath(pythonPath), [resolvePath(cliPath), ...args]);
-	return { stdout: stdout.trim(), stderr: stderr.trim() };
+	const result = await pi.exec(resolvePath(binaryPath), args, { signal, timeout: 30_000 });
+	const stdout = result.stdout.trim();
+	const stderr = result.stderr.trim();
+	if (result.code !== 0) {
+		throw new Error(stderr || stdout || `multirepl exited with code ${result.code}`);
+	}
+	return { stdout, stderr };
 }
 
 function getSocketPath(kernelName: string): string | null {
@@ -154,34 +154,35 @@ const replTool: ToolDefinition = {
 	},
 };
 
-const replManageTool: ToolDefinition = {
-	name: "repl-manage",
-	label: "Repl Manage",
-	description: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
-	parameters: replManageSchema,
-	async execute(
+function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
+	return {
+		name: "repl-manage",
+		label: "Repl Manage",
+		description: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
+		parameters: replManageSchema,
+		async execute(
 		_toolCallId,
 		params: Static<typeof replManageSchema>,
-		_signal,
+		signal,
 		_onUpdate,
 		_ctx: ExtensionContext,
 	): Promise<AgentToolResult<string>> {
-		const cliPath = params.cli ?? DEFAULT_CLI;
-		const pythonPath = params.python ?? DEFAULT_PYTHON;
+		const binaryPath = params.binary ?? DEFAULT_BINARY;
 		const name = params.name ?? (params.action === "create" ? generateKernelName() : undefined);
 		try {
-			const { stdout, stderr } = await runCli(params.action, name, cliPath, pythonPath);
+			const { stdout, stderr } = await runCli(pi, params.action, name, binaryPath, signal);
 			const text = stderr ? `${stdout}\nstderr: ${stderr}` : stdout;
 			return { content: [{ type: "text", text }], details: stdout };
-		} catch (err: any) {
-			return { content: [{ type: "text", text: err.message }], details: undefined, isError: true };
+		} catch (err: unknown) {
+			throw err instanceof Error ? err : new Error(String(err));
 		}
-	},
-};
+		},
+	};
+}
 
 // ── Extension ───────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI): void {
 	pi.registerTool(replTool);
-	pi.registerTool(replManageTool);
+	pi.registerTool(createReplManageTool(pi));
 }
