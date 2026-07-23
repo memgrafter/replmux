@@ -1,6 +1,7 @@
 # Python environments and caches
 .venv/
 venv/
+test/.kernels/
 __pycache__/
 *.py[cod]
 *$py.class

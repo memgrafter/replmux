@@ -1,0 +1,83 @@
+# Canonical interoperability test matrix.
+# `kernelspec` is the commonly used name; installations may register another
+# name. Use `jupyter kernelspec list --json` to discover local names.
+
+[[kernels]]
+id = "python-ipykernel"
+display_name = "Python (ipykernel)"
+language = "python"
+kernelspec = "python3"
+tier = "required"
+project_url = "https://github.com/ipython/ipykernel"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["ipykernel"]
+
+[[kernels]]
+id = "julia-ijulia"
+display_name = "Julia (IJulia)"
+language = "julia"
+kernelspec = "julia"
+tier = "optional"
+project_url = "https://github.com/JuliaLang/IJulia.jl"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["juliaup"]
+setup = [
+  ["juliaup", "add", "release"],
+  ["julia", "+release", "-e", "using Pkg; Pkg.add(\"IJulia\")"],
+]
+
+[[kernels]]
+id = "r-irkernel"
+display_name = "R (IRkernel)"
+language = "R"
+kernelspec = "ir"
+tier = "optional"
+project_url = "https://github.com/IRkernel/IRkernel"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["r-irkernel"]
+
+[[kernels]]
+id = "cpp-xeus-cling"
+display_name = "C++ (xeus-cling)"
+language = "c++"
+kernelspec = "xcpp"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-cling"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-cpp"]
+
+[[kernels]]
+id = "javascript-ijavascript"
+display_name = "JavaScript (IJavascript)"
+language = "javascript"
+kernelspec = "javascript"
+tier = "optional"
+project_url = "https://github.com/n-riesco/ijavascript"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["nodejs=18", "jupyter_client"]
+setup = [
+  ["npm", "install", "--global", "ijavascript"],
+  ["ijsinstall"],
+]
+
+[[kernels]]
+id = "dotnet-csharp"
+display_name = ".NET (C#)"
+language = "C#"
+kernelspec = ".net-csharp"
+tier = "optional"
+project_url = "https://github.com/dotnet/interactive"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["dotnet-interactive"]
