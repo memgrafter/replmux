@@ -14,8 +14,8 @@ const exec = promisify(execFile);
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
 const replSchema = Type.Object({
-	code: Type.String({ description: "Python code to execute in the REPL kernel" }),
-	name: Type.String({ description: "Kernel name" }),
+	code: Type.String({ description: "Python code to execute in the REPL kernel. Single expressions return a value; statements do not." }),
+	name: Type.String({ description: "Name of a running kernel (created via repl-manage)" }),
 });
 
 const replManageSchema = Type.Object({
@@ -25,9 +25,9 @@ const replManageSchema = Type.Object({
 		Type.Literal("list"),
 		Type.Literal("connect"),
 	]),
-	name: Type.Optional(Type.String({ description: "Kernel name" })),
-	cli: Type.Optional(Type.String({ description: "Path to jupyter_repl_cli.py" })),
-	python: Type.Optional(Type.String({ description: "Path to python binary" })),
+	name: Type.Optional(Type.String({ description: "[optional] Kernel name. Auto-generated on create if omitted." })),
+	cli: Type.Optional(Type.String({ description: "[optional] Path to jupyter_repl_cli.py" })),
+	python: Type.Optional(Type.String({ description: "[optional] Path to python binary" })),
 });
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ function sendToKernel(socketPath: string, code: string): Promise<Record<string, 
 const replTool: ToolDefinition = {
 	name: "repl",
 	label: "Repl",
-	description: "Execute Python code in a persistent REPL kernel. State (variables, imports) persists across calls. Returns {ok, result, stdout, error}.",
+	description: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
 	parameters: replSchema,
 	renderCall(args: Static<typeof replSchema>, theme: Theme, context: ToolRenderContext) {
 		const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
@@ -157,7 +157,7 @@ const replTool: ToolDefinition = {
 const replManageTool: ToolDefinition = {
 	name: "repl-manage",
 	label: "Repl Manage",
-	description: "Manage REPL kernel lifecycle. Actions: create (start kernel), delete (shutdown), list (show kernels), connect (print connection JSON).",
+	description: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
 	parameters: replManageSchema,
 	async execute(
 		_toolCallId,
