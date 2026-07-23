@@ -17,17 +17,20 @@ The immediate Python CLI and Pi tool parity milestone is complete:
 - Rust `kernel create`, `list`, `connect`, `exec`, and `delete`
 - Top-level compatibility aliases
 - Persistent Unix-socket execution with stdout, stderr, results, and errors
-- Statically bundled ZeroMQ for signed Jupyter shutdown
-- Rust lifecycle integration tests
-- Pi `repl-manage` migrated to the Rust binary while `repl` retains direct socket transport
+- Statically bundled ZeroMQ and a full signed Jupyter protocol client
+- Conventional kernelspec launch and external connection attachment
+- Local circuit-breaker and explicit Unix-socket broker modes
+- Rust lifecycle, Jupyter protocol, kernelspec, broker, and extension integration tests
+- Pi `repl-manage` migrated to the Rust binary
+- Pi `repl` prefers the broker, falls back to the direct worker socket, then uses Rust Jupyter execution for standard kernels
 
-The epic remains open because the durable broker-managed runtime design below is not implemented. Remaining child tickets:
+The epic remains open because the durable broker-managed runtime design below is not implemented. Child status:
 
-- `mul-jcif` — broker-managed runtime lifecycle
-- `mul-yxmc` — unified Jupyter execution protocol
-- `mul-hfdn` — runtime branches and snapshots
-- `mul-c2z5` — runtime events and diagnostics
-- `mul-a809` — arbitrary Jupyter kernel launch and attachment
+- `mul-yxmc` — unified Jupyter execution protocol — complete
+- `mul-jcif` — broker-managed runtime lifecycle — open
+- `mul-hfdn` — runtime branches and snapshots — open
+- `mul-c2z5` — runtime events and diagnostics — open
+- `mul-a809` — arbitrary Jupyter kernel launch and attachment — implemented; external kernel compatibility validation remains
 
 The ideal `cli/` REPL manager should manage **durable runtimes through the broker**, not directly treat kernel PIDs as the primary object.
 

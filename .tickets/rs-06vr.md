@@ -1,8 +1,8 @@
 ---
 id: rs-06vr
-status: open
+status: closed
 deps: []
-links: []
+links: [mul-hfdn]
 created: 2026-07-08T21:16:41Z
 type: feature
 priority: 1
@@ -44,3 +44,7 @@ Teaches agents how to use both the CLI and the Python client (jupyter_repl.Kerne
 1. CLI for create/list/delete with namespacing
 2. Skill for agent integration
 3. Snapshot/restore as follow-up
+
+**2026-07-23T05:23:11Z**
+
+Core scope is complete in Rust: named create/list/connect/delete/exec lifecycle, extension integration, skill documentation, and persistent multiplayer namespaces. Snapshot/restore remains tracked separately by mul-hfdn.

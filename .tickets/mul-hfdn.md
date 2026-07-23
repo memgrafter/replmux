@@ -2,7 +2,7 @@
 id: mul-hfdn
 status: open
 deps: []
-links: []
+links: [rs-06vr]
 created: 2026-07-23T04:28:30Z
 type: feature
 priority: 2
