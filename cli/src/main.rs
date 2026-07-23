@@ -1,9 +1,10 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 use multirepl_runtime_cli::{
-    ApiClient, EnvironmentSpec, Runtime, RuntimeCreate, RuntimeStatus, RuntimeUpdate,
-    SnapshotPolicy,
+    ApiClient, EnvironmentSpec, KernelManager, ReplResponse, Runtime, RuntimeCreate, RuntimeStatus,
+    RuntimeUpdate, SnapshotPolicy,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -26,6 +27,15 @@ struct Cli {
     #[arg(long, global = true, help = "Print JSON instead of a table")]
     json: bool,
 
+    #[arg(long, global = true, env = "MULTIREPL_KERNEL_DIR")]
+    kernel_dir: Option<PathBuf>,
+
+    #[arg(long, global = true, env = "MULTIREPL_PYTHON")]
+    python: Option<PathBuf>,
+
+    #[arg(long, global = true, env = "MULTIREPL_KERNEL_SCRIPT")]
+    kernel_script: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -36,6 +46,29 @@ enum Command {
         #[command(subcommand)]
         command: RuntimeCommand,
     },
+    Kernel {
+        #[command(subcommand)]
+        command: KernelCommand,
+    },
+    #[command(hide = true)]
+    Create { name: String },
+    #[command(hide = true)]
+    List,
+    #[command(hide = true)]
+    Connect { name: String },
+    #[command(hide = true)]
+    Delete { name: String },
+    #[command(hide = true)]
+    Exec { name: String, code: String },
+}
+
+#[derive(Debug, Subcommand)]
+enum KernelCommand {
+    Create { name: String },
+    List,
+    Connect { name: String },
+    Delete { name: String },
+    Exec { name: String, code: String },
 }
 
 #[derive(Debug, Subcommand)]
@@ -120,11 +153,133 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
-    let client = ApiClient::new(&cli.api_url)?;
-
     match cli.command {
-        Command::Runtime { command } => run_runtime(&client, command, cli.json),
+        Command::Runtime { command } => {
+            let client = ApiClient::new(&cli.api_url)?;
+            run_runtime(&client, command, cli.json)
+        }
+        Command::Kernel { command } => run_kernel(
+            command,
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
+        Command::Create { name } => run_kernel(
+            KernelCommand::Create { name },
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
+        Command::List => run_kernel(
+            KernelCommand::List,
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
+        Command::Connect { name } => run_kernel(
+            KernelCommand::Connect { name },
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
+        Command::Delete { name } => run_kernel(
+            KernelCommand::Delete { name },
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
+        Command::Exec { name, code } => run_kernel(
+            KernelCommand::Exec { name, code },
+            cli.json,
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+        ),
     }
+}
+
+fn run_kernel(
+    command: KernelCommand,
+    json_output: bool,
+    kernel_dir: Option<PathBuf>,
+    python: Option<PathBuf>,
+    kernel_script: Option<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    let manager = KernelManager::from_options(kernel_dir, python, kernel_script)?;
+    match command {
+        KernelCommand::Create { name } => {
+            let pid = manager.create(&name)?;
+            if json_output {
+                print_json(&json!({"name": name, "pid": pid, "status": "running"}))?;
+            } else {
+                println!("Kernel '{name}' started (pid {pid})");
+            }
+        }
+        KernelCommand::List => {
+            let kernels = manager.list()?;
+            if json_output {
+                print_json(&kernels)?;
+            } else if kernels.is_empty() {
+                println!("No kernels found.");
+            } else {
+                println!("{:<24} {:<10} STATUS", "NAME", "PID");
+                for kernel in kernels {
+                    let pid = kernel
+                        .pid
+                        .map_or_else(|| "?".to_owned(), |pid| pid.to_string());
+                    println!("{:<24} {:<10} {}", kernel.name, pid, kernel.status);
+                }
+            }
+        }
+        KernelCommand::Connect { name } => print_json(&manager.connection(&name)?)?,
+        KernelCommand::Delete { name } => {
+            manager.delete(&name)?;
+            if json_output {
+                print_json(&json!({"name": name, "deleted": true}))?;
+            } else {
+                println!("Kernel '{name}' shut down.");
+            }
+        }
+        KernelCommand::Exec { name, code } => {
+            let response = manager.execute(&name, &code)?;
+            if json_output {
+                print_json(&response)?;
+            } else {
+                print_repl_response(&response)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn print_repl_response(response: &ReplResponse) -> Result<(), Box<dyn Error>> {
+    if !response.ok {
+        return Err(response
+            .error
+            .clone()
+            .unwrap_or_else(|| "kernel execution failed".to_owned())
+            .into());
+    }
+    if response.mode.as_deref() == Some("eval") {
+        if let Some(result) = &response.result {
+            match result {
+                serde_json::Value::String(value) => println!("{value}"),
+                value => println!("{value}"),
+            }
+        }
+    }
+    if !response.stdout.is_empty() {
+        print!("{}", response.stdout);
+    }
+    if !response.stderr.is_empty() {
+        eprint!("{}", response.stderr);
+    }
+    Ok(())
 }
 
 fn run_runtime(
