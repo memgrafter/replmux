@@ -1,7 +1,7 @@
 ---
 id: mul-5zgf
-status: closed
-deps: [mul-r5oy]
+status: open
+deps: [mul-r5oy, mul-jcif, mul-yxmc, mul-hfdn, mul-c2z5]
 links: []
 created: 2026-07-23T03:37:52Z
 type: epic
@@ -9,6 +9,24 @@ priority: 2
 assignee: memgrafter
 ---
 # Add REPL manager functionality to Rust CLI
+
+## Current status
+
+The immediate Python CLI and Pi tool parity milestone is complete:
+
+- Rust `kernel create`, `list`, `connect`, `exec`, and `delete`
+- Top-level compatibility aliases
+- Persistent Unix-socket execution with stdout, stderr, results, and errors
+- Statically bundled ZeroMQ for signed Jupyter shutdown
+- Rust lifecycle integration tests
+- Pi `repl-manage` migrated to the Rust binary while `repl` retains direct socket transport
+
+The epic remains open because the durable broker-managed runtime design below is not implemented. Remaining child tickets:
+
+- `mul-jcif` — broker-managed runtime lifecycle
+- `mul-yxmc` — unified Jupyter execution protocol
+- `mul-hfdn` — runtime branches and snapshots
+- `mul-c2z5` — runtime events and diagnostics
 
 The ideal `cli/` REPL manager should manage **durable runtimes through the broker**, not directly treat kernel PIDs as the primary object.
 
