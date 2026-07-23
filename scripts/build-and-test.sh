@@ -12,6 +12,14 @@ require_command() {
   fi
 }
 
+prepare_kernel_environment() {
+  printf '\n==> Preparing Python kernel environment\n'
+  (
+    cd "${REPO_ROOT}"
+    uv sync --locked
+  )
+}
+
 run_service_tests() {
   printf '\n==> Testing FastAPI service\n'
   (
@@ -36,6 +44,7 @@ main() {
   require_command uv
   require_command cargo
 
+  prepare_kernel_environment
   run_service_tests
   build_and_test_cli
 

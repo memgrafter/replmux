@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify native target
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="$(rustc -vV | awk '/^host:/ { print $2 }')"
+          if [[ "${host}" != "${{ matrix.target }}" ]]; then
+            printf 'error: runner host %s does not match release target %s\n' \
+              "${host}" "${{ matrix.target }}" >&2
+            exit 1
+          fi
+
+      - name: Build, test, and package
+        shell: bash
+        run: ./scripts/release.sh
+
+      - name: Verify expected artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(awk '/^\[package\]$/ { package=1; next } /^\[/ { package=0 } package && /^version = / { gsub(/"/, "", $3); print $3; exit }' cli/Cargo.toml)"
+          archive="dist/multirepl-v${version}-${{ matrix.target }}.tar.gz"
+          test -s "${archive}"
+          test -s "${archive}.sha256"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: multirepl-${{ matrix.target }}
+          path: |
+            dist/multirepl-*.tar.gz
+            dist/multirepl-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14

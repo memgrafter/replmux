@@ -98,6 +98,17 @@ The script cleans previous Rust build artifacts, runs the locked service and CLI
 
 The archive includes the CLI, `minimal_kernel_clean.py`, and this README. The Rust CLI uses its bundled libzmq for Jupyter control messages and does not require a system ZeroMQ installation. Python 3 with `pyzmq` is still required by the Python kernel worker.
 
+GitHub Actions builds and tests four native release targets on version tags or manual dispatch:
+
+```text
+aarch64-apple-darwin
+x86_64-apple-darwin
+aarch64-unknown-linux-gnu
+x86_64-unknown-linux-gnu
+```
+
+Each target is uploaded as a separate workflow artifact with its SHA-256 checksum. Musl targets are tracked separately because bundled libzmq also requires a compatible static C++ cross-toolchain.
+
 ## Dependency security
 
 Run all checks with UTC start/finish timestamps and elapsed seconds:
