@@ -1,8 +1,8 @@
 # Multirepl Rust CLI
 
-A small HTTP client for the runtime CRUD operations exposed by `service/`.
+The CLI manages runtime metadata through `service/` and provides local kernel lifecycle and persistent REPL execution.
 
-## Commands
+## Runtime commands
 
 ```bash
 multirepl runtime create analysis
@@ -11,6 +11,37 @@ multirepl runtime get rt_ID
 multirepl runtime update rt_ID --status running
 multirepl runtime delete rt_ID
 ```
+
+## Kernel and REPL commands
+
+```bash
+multirepl kernel create analysis
+multirepl kernel list
+multirepl kernel connect analysis
+multirepl kernel exec analysis 'x = 42'
+multirepl kernel exec analysis 'x'
+multirepl kernel delete analysis
+```
+
+For compatibility with `jupyter_repl_cli.py`, lifecycle commands are also accepted at the top level:
+
+```bash
+multirepl create analysis
+multirepl list
+multirepl connect analysis
+multirepl exec analysis 'x + 1'
+multirepl delete analysis
+```
+
+Kernel configuration can be supplied globally or through environment variables:
+
+```text
+--kernel-dir       MULTIREPL_KERNEL_DIR
+--python           MULTIREPL_PYTHON
+--kernel-script    MULTIREPL_KERNEL_SCRIPT
+```
+
+The defaults are `~/.jupyter-repl/kernels`, `python3`, and `minimal_kernel_clean.py`. Use `--json` for stable machine-readable lifecycle and execution responses.
 
 The default API URL is `http://127.0.0.1:8000`. Override it with either:
 
@@ -24,6 +55,30 @@ Use `--json` for machine-readable output:
 ```bash
 multirepl --json runtime list
 ```
+
+## Release package
+
+From the repository root:
+
+```bash
+./scripts/release.sh
+```
+
+The script cleans previous Rust build artifacts, runs the locked service and CLI test suite, builds the optimized binary, verifies that libzmq is statically bundled rather than dynamically linked, and creates a target-specific archive plus SHA-256 checksum under `dist/`. Override the destination with `MULTIREPL_RELEASE_DIR`.
+
+The archive includes the CLI, `minimal_kernel_clean.py`, and this README. The Rust CLI uses its bundled libzmq for Jupyter control messages and does not require a system ZeroMQ installation. Python 3 with `pyzmq` is still required by the Python kernel worker.
+
+## Dependency security
+
+Run all checks with UTC start/finish timestamps and elapsed seconds:
+
+```bash
+./scripts/audit-rust-deps.sh
+```
+
+The script checks for `cargo-audit`, `cargo-deny`, and `cargo-vet`, installing only missing tools with `cargo install --locked`. Existing installations are reused. It initializes missing cargo-deny and cargo-vet policy stores, runs every security check even if an earlier check fails, then exits nonzero if any check failed.
+
+Security policy is committed in `cli/deny.toml` and `cli/supply-chain/`. The initial cargo-vet exemptions establish a reproducible baseline; they remain review debt to replace with imported or project audits over time.
 
 ## Development
 
