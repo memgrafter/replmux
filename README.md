@@ -38,4 +38,5 @@ claude mcp add --scope user replmux -- replmux mcp
 - [Agent usage](SKILL.md)
 - [CLI and installation](cli/README.md)
 - [Agent-oriented kernel recommendations](docs/AGENT_KERNEL_CATALOG.md)
+- [Blocked kernels and provider projections](docs/BLOCKED_KERNEL_DEPLOYMENT.md)
 - [Kernel compatibility matrix](tests/jupyter-kernels/kernels.toml)

@@ -39,4 +39,7 @@ Discover the installed kernelspec name before launch; names can vary by version.
 
 Deeper operational details live in [`cli/README.md`](cli/README.md); kernel
 recommendations live in
-[`docs/AGENT_KERNEL_CATALOG.md`](docs/AGENT_KERNEL_CATALOG.md).
+[`docs/AGENT_KERNEL_CATALOG.md`](docs/AGENT_KERNEL_CATALOG.md). For a failed
+kernel, consult
+[`docs/BLOCKED_KERNEL_DEPLOYMENT.md`](docs/BLOCKED_KERNEL_DEPLOYMENT.md) before
+changing packages or moving providers.

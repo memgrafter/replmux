@@ -8,7 +8,9 @@ for unattended agents or supported by Replmux.
 
 Replmux's executable compatibility matrix remains
 [`tests/jupyter-kernels/kernels.toml`](../tests/jupyter-kernels/kernels.toml).
-This document is the candidate backlog and selection policy.
+This document is the candidate backlog and selection policy. See the
+[blocked-kernel deployment workup](BLOCKED_KERNEL_DEPLOYMENT.md) for observed
+failures and Linux, VM, and alternate-OS projections.
 
 ## What makes a kernel useful to agents
 
