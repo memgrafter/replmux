@@ -1,6 +1,6 @@
 ---
 id: rep-7vcx
-status: in_progress
+status: closed
 deps: []
 links: []
 created: 2026-07-23T07:08:35Z
@@ -35,3 +35,7 @@ assignee: memgrafter
 **2026-07-23T07:46:11Z**
 
 6/7 xeus-sqlite: installed 0.10.0; lifecycle passed. Created a database, table, and row across separate calls; SELECT returned 43 as text/plain and HTML execute_result.
+
+**2026-07-23T07:51:06Z**
+
+7/7 EvCxR: installed 0.21.1; lifecycle and persistent Rust state passed (answer=42, later println emitted 43). Final matrix additions: SageMath, LFortran, xeus-sqlite, EvCxR. Maxima-Jupyter, GAP, and Octave remain documented host/provisioning blockers. Cleaned micromamba caches after installs; 6.0 GiB remains free.

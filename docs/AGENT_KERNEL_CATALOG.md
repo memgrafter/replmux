@@ -90,6 +90,18 @@ Start with a bounded matrix that maximizes distinct capabilities:
 6. xeus-sqlite
 7. EvCxR
 
+Current macOS arm64 lifecycle results:
+
+- Ready in the compatibility matrix: SageMath 10.9, LFortran 0.64.0,
+  xeus-sqlite 0.10.0, and EvCxR 0.21.1.
+- Maxima-Jupyter is blocked because conda-forge's Maxima uses unsupported ECL;
+  its supported SBCL route requires a source build.
+- GAP's kernel is blocked because its required GAP packages are not available as
+  conda-forge binaries and include compiled dependencies.
+- xeus-octave and Octave 10.3.0 currently crash on the tested macOS arm64 host.
+  This is a host/package result, not a declaration that Octave is unsupported
+  everywhere.
+
 Evaluate Wolfram and MATLAB separately on licensed developer machines. Evaluate
 Scilab and assembly kernels only after confirming current maintenance and a
 repeatable arm64 macOS/Linux installation path.

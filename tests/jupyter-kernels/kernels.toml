@@ -125,3 +125,15 @@ project_url = "https://github.com/jupyter-xeus/xeus-sqlite"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["xeus-sqlite"]
+
+[[kernels]]
+id = "rust-evcxr"
+display_name = "Rust (EvCxR)"
+language = "rust"
+kernelspec = "rust"
+tier = "optional"
+project_url = "https://github.com/evcxr/evcxr"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["evcxr"]
