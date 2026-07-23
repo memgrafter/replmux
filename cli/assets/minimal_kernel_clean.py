@@ -133,11 +133,14 @@ class Kernel:
         supplied_connection = self._read_connection_file()
         supplied_key = supplied_connection.get("key", "") if supplied_connection else ""
         if isinstance(supplied_key, str):
+            self.connection_key = supplied_key
             self.key = supplied_key.encode()
         else:
             self.key = supplied_key or os.urandom(32)
+            self.connection_key = self.key.hex()
         if not self.key:
             self.key = os.urandom(32)
+            self.connection_key = self.key.hex()
         self.session_id: str = uuid.uuid4().hex
 
         # ZMQ
@@ -198,7 +201,7 @@ class Kernel:
                 "hb_port": int(info.hb_port),
                 "stdin_port": 0,
                 "ip": info.ip,
-                "key": self.key.hex(),
+                "key": self.connection_key,
                 "transport": info.transport,
                 "signature_scheme": info.signature_scheme,
                 "kernel_name": info.kernel_name,
