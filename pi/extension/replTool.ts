@@ -27,7 +27,7 @@ const replManageSchema = Type.Object({
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
-const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? "~/bin/replmux";
+const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? "~/.local/bin/replmux";
 const DEFAULT_BROKER_SOCKET = process.env.REPLMUX_BROKER_SOCKET ?? "~/.replmux/b.sock";
 
 function resolvePath(p: string): string {
