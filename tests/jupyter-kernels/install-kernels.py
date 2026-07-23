@@ -120,7 +120,9 @@ def normalize_kernelspec_executables(prefix: Path) -> None:
             environment_executable = prefix / "bin" / argv[0]
             if environment_executable.is_file():
                 argv[0] = str(environment_executable)
-        kernelspec_path.write_text(json.dumps(kernelspec, indent=2) + "\n")
+        normalized_path = kernelspec_path.with_suffix(".json.tmp")
+        normalized_path.write_text(json.dumps(kernelspec, indent=2) + "\n")
+        normalized_path.replace(kernelspec_path)
 
 
 def main() -> int:
