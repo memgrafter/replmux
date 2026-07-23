@@ -1,7 +1,7 @@
 # Runtime API and Rust CLI Handoff
 
 **Date:** 2026-07-22 PDT
-**Repository:** `/Users/trentrobbins/code/multirepl`
+**Repository:** Multirepl repository root
 **Audience:** Next implementation agent
 
 ## Summary
@@ -95,7 +95,7 @@ SQLite WAL and a five-second busy timeout are enabled.
 ### Run
 
 ```bash
-cd /Users/trentrobbins/code/multirepl/service
+cd service
 uv sync --dev
 uv run uvicorn multirepl_service.app:app --reload
 ```
@@ -103,7 +103,7 @@ uv run uvicorn multirepl_service.app:app --reload
 ### Tests
 
 ```bash
-cd /Users/trentrobbins/code/multirepl/service
+cd service
 uv run pytest
 ```
 
@@ -183,7 +183,7 @@ The client:
 The user ran:
 
 ```bash
-cd /Users/trentrobbins/code/multirepl/cli
+cd cli
 cargo test
 ```
 
