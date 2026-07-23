@@ -1,7 +1,7 @@
 ---
 id: mul-yxmc
 status: open
-deps: []
+deps: [mul-ebhb]
 links: []
 created: 2026-07-23T04:28:30Z
 type: feature
