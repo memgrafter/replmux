@@ -20,8 +20,24 @@ multirepl kernel list
 multirepl kernel connect analysis
 multirepl kernel exec analysis 'x = 42'
 multirepl kernel exec analysis 'x'
+multirepl kernel info analysis
+multirepl kernel complete analysis 'value.bi'
+multirepl kernel inspect analysis 'value.bit_length'
+multirepl kernel is-complete analysis 'for item in values:'
+multirepl kernel heartbeat analysis
+multirepl kernel interrupt analysis
 multirepl kernel delete analysis
 ```
+
+Launch any installed Jupyter kernelspec or attach an existing connection file:
+
+```bash
+multirepl kernel create science --kernelspec python3
+multirepl kernel create algebra --kernelspec /path/to/sage/kernel.json
+multirepl kernel attach existing /path/to/kernel-connection.json
+```
+
+Kernelspec discovery follows `JUPYTER_PATH`, macOS and user data directories, then system Jupyter data directories. Standard kernels execute through their signed Jupyter ZMQ channels; Multirepl's custom worker retains its direct Unix socket as a local optimization.
 
 For compatibility with `jupyter_repl_cli.py`, lifecycle commands are also accepted at the top level:
 

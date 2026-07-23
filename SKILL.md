@@ -27,7 +27,7 @@ Use Multirepl as durable working memory for Python computation: create a named w
 - The code is untrusted; Multirepl is not a sandbox.
 - Concurrent agents may mutate the same values without coordinating.
 - You require transactions, rollback, durable replay, or automatic crash restoration.
-- You require full `ipykernel` behavior such as magics, widgets, async integration, or debugging.
+- You require sandboxing or automatic rollback. For magics, rich displays, or language-specific behavior, launch the appropriate standard Jupyter kernelspec instead of the minimal worker.
 
 ## Usage
 
@@ -122,13 +122,17 @@ multirepl kernel exec analysis 'x = 40'
 multirepl kernel exec analysis 'x + 2'
 multirepl kernel list
 multirepl kernel delete analysis
+
+# Launch or attach standard Jupyter kernels
+multirepl kernel create notebook --kernelspec python3
+multirepl kernel attach existing /path/to/connection.json
 ```
 
-Use `multirepl serve` only when clients should share the optional local broker. Normal commands work without a running service.
+Standard Jupyter kernels use signed ZMQ execution; the custom Multirepl worker retains its faster direct socket. Use `multirepl serve` only when clients should share the optional local broker. Normal commands work without a running service.
 
 ## How it works
 
-The Pi extension prefers the local Rust broker when one is running and otherwise talks directly to the named Python kernel over a Unix socket. Lifecycle operations use the Rust CLI. The Python worker requires Python 3 with `pyzmq`; the Rust binary bundles its own libzmq.
+The Pi extension prefers the local Rust broker when one is running, falls back to a direct Multirepl worker socket, and uses the Rust Jupyter client for standard kernels without that custom socket. Lifecycle operations use the Rust CLI. The Python worker requires Python 3 with `pyzmq`; the Rust binary bundles its own libzmq.
 
 For transport options, runtime metadata commands, release procedures, and architecture details, see [cli/README.md](cli/README.md) and [docs/](docs/).
 
