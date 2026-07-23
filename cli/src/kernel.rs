@@ -25,11 +25,11 @@ pub struct KernelManager {
     kernel_script: PathBuf,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct KernelStatus {
     pub name: String,
     pub pid: Option<u32>,
-    pub status: &'static str,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -148,7 +148,8 @@ impl KernelManager {
                 Some(pid) if process_is_alive(pid) => "running",
                 Some(_) => "dead",
                 None => "no-pid",
-            };
+            }
+            .to_owned();
             kernels.push(KernelStatus {
                 name: name.to_owned(),
                 pid,

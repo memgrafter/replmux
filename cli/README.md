@@ -39,9 +39,23 @@ Kernel configuration can be supplied globally or through environment variables:
 --kernel-dir       MULTIREPL_KERNEL_DIR
 --python           MULTIREPL_PYTHON
 --kernel-script    MULTIREPL_KERNEL_SCRIPT
+--broker-socket    MULTIREPL_BROKER_SOCKET
 ```
 
-The defaults are `~/.jupyter-repl/kernels`, `python3`, and `minimal_kernel_clean.py`. Use `--json` for stable machine-readable lifecycle and execution responses.
+The defaults are `~/.jupyter-repl/kernels`, `python3`, `minimal_kernel_clean.py`, and the short broker path `~/.multirepl/b.sock`. Use `--json` for stable machine-readable lifecycle and execution responses.
+
+### Local and served modes
+
+Kernel commands default to `--transport auto`. Each command attempts the broker Unix socket once. An active broker receives the real request; `ENOENT` or `ECONNREFUSED` immediately short-circuits to the same in-process service implementation. Permission, protocol, and other broker failures are returned rather than bypassed.
+
+```bash
+multirepl kernel list                    # auto: socket or in-process
+multirepl --transport local kernel list  # require in-process handling
+multirepl --transport socket kernel list # require a running broker
+multirepl serve                          # explicit persistent broker
+```
+
+The broker socket is created with mode `0600`, stale sockets are replaced on startup, and requests use bounded 30-second I/O timeouts.
 
 The default API URL is `http://127.0.0.1:8000`. Override it with either:
 

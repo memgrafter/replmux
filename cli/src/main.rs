@@ -2,9 +2,13 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
+use multirepl_runtime_cli::broker::{
+    KernelOperation, KernelRequest, KernelResponse, TransportMode, default_socket_path, dispatch,
+    serve,
+};
 use multirepl_runtime_cli::{
-    ApiClient, EnvironmentSpec, KernelManager, ReplResponse, Runtime, RuntimeCreate, RuntimeStatus,
-    RuntimeUpdate, SnapshotPolicy,
+    ApiClient, EnvironmentSpec, ReplResponse, Runtime, RuntimeCreate, RuntimeStatus, RuntimeUpdate,
+    SnapshotPolicy,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -36,6 +40,12 @@ struct Cli {
     #[arg(long, global = true, env = "MULTIREPL_KERNEL_SCRIPT")]
     kernel_script: Option<PathBuf>,
 
+    #[arg(long, global = true, default_value = "auto")]
+    transport: TransportMode,
+
+    #[arg(long, global = true, env = "MULTIREPL_BROKER_SOCKET")]
+    broker_socket: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -50,16 +60,26 @@ enum Command {
         #[command(subcommand)]
         command: KernelCommand,
     },
+    Serve,
     #[command(hide = true)]
-    Create { name: String },
+    Create {
+        name: String,
+    },
     #[command(hide = true)]
     List,
     #[command(hide = true)]
-    Connect { name: String },
+    Connect {
+        name: String,
+    },
     #[command(hide = true)]
-    Delete { name: String },
+    Delete {
+        name: String,
+    },
     #[command(hide = true)]
-    Exec { name: String, code: String },
+    Exec {
+        name: String,
+        code: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -164,13 +184,20 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
+        Command::Serve => {
+            serve(&cli.broker_socket.unwrap_or_else(default_socket_path)).map_err(Into::into)
+        }
         Command::Create { name } => run_kernel(
             KernelCommand::Create { name },
             cli.json,
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
         Command::List => run_kernel(
             KernelCommand::List,
@@ -178,6 +205,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
         Command::Connect { name } => run_kernel(
             KernelCommand::Connect { name },
@@ -185,6 +214,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
         Command::Delete { name } => run_kernel(
             KernelCommand::Delete { name },
@@ -192,6 +223,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
         Command::Exec { name, code } => run_kernel(
             KernelCommand::Exec { name, code },
@@ -199,6 +232,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.kernel_dir,
             cli.python,
             cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
     }
 }
@@ -209,19 +244,35 @@ fn run_kernel(
     kernel_dir: Option<PathBuf>,
     python: Option<PathBuf>,
     kernel_script: Option<PathBuf>,
+    transport: TransportMode,
+    broker_socket: PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    let manager = KernelManager::from_options(kernel_dir, python, kernel_script)?;
-    match command {
-        KernelCommand::Create { name } => {
-            let pid = manager.create(&name)?;
+    let operation = match command {
+        KernelCommand::Create { name } => KernelOperation::Create { name },
+        KernelCommand::List => KernelOperation::List,
+        KernelCommand::Connect { name } => KernelOperation::Connect { name },
+        KernelCommand::Delete { name } => KernelOperation::Delete { name },
+        KernelCommand::Exec { name, code } => KernelOperation::Exec { name, code },
+    };
+    let response = dispatch(
+        KernelRequest {
+            operation,
+            kernel_dir,
+            python,
+            kernel_script,
+        },
+        transport,
+        &broker_socket,
+    )?;
+    match response {
+        KernelResponse::Created { name, pid } => {
             if json_output {
                 print_json(&json!({"name": name, "pid": pid, "status": "running"}))?;
             } else {
                 println!("Kernel '{name}' started (pid {pid})");
             }
         }
-        KernelCommand::List => {
-            let kernels = manager.list()?;
+        KernelResponse::Listed { kernels } => {
             if json_output {
                 print_json(&kernels)?;
             } else if kernels.is_empty() {
@@ -236,17 +287,15 @@ fn run_kernel(
                 }
             }
         }
-        KernelCommand::Connect { name } => print_json(&manager.connection(&name)?)?,
-        KernelCommand::Delete { name } => {
-            manager.delete(&name)?;
+        KernelResponse::Connected { connection } => print_json(&connection)?,
+        KernelResponse::Deleted { name } => {
             if json_output {
                 print_json(&json!({"name": name, "deleted": true}))?;
             } else {
                 println!("Kernel '{name}' shut down.");
             }
         }
-        KernelCommand::Exec { name, code } => {
-            let response = manager.execute(&name, &code)?;
+        KernelResponse::Executed { response } => {
             if json_output {
                 print_json(&response)?;
             } else {
