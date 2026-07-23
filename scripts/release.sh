@@ -151,7 +151,7 @@ main() {
   mkdir -p -- "${bundle_dir}"
 
   install -m 0755 "${RELEASE_BINARY}" "${bundle_dir}/replmux"
-  install -m 0644 "${REPO_ROOT}/cli/assets/minimal_kernel_clean.py" "${bundle_dir}/minimal_kernel_clean.py"
+  install -m 0644 "${REPO_ROOT}/cli/assets/python_minimal_kernel.py" "${bundle_dir}/python_minimal_kernel.py"
   install -m 0644 "${REPO_ROOT}/cli/README.md" "${bundle_dir}/README.md"
 
   tar -C "${staging_dir}" -czf "${archive_path}.tmp" "${release_name}"

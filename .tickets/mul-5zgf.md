@@ -134,7 +134,7 @@ Required launch and compatibility coverage belongs to `mul-a809`:
 
 - Kernelspec discovery and `argv`/environment expansion
 - Conventional caller-created connection files and `{connection_file}` substitution
-- Launching arbitrary kernels instead of hardcoding `minimal_kernel_clean.py`
+- Launching arbitrary kernels instead of hardcoding `python_minimal_kernel.py`
 - Attaching to externally managed kernels
 - Removing `socket_path` as a requirement; retain it only as an optional local optimization
 - Compatibility tests for the minimal kernel, `ipykernel`, Sage, and at least one non-Python kernel such as Julia or R

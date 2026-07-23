@@ -22,7 +22,7 @@ fn command(kernel_dir: &PathBuf) -> Command {
         .arg("--python")
         .arg(python)
         .arg("--kernel-script")
-        .arg(manifest_dir.join("assets/minimal_kernel_clean.py"))
+        .arg(manifest_dir.join("assets/python_minimal_kernel.py"))
         .arg("--broker-socket")
         .arg(kernel_dir.join("broker.sock"));
     command
@@ -184,7 +184,7 @@ fn launches_kernelspec_and_attaches_standard_connection() {
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let python = manifest_dir.join("tests/.venv/bin/python");
-    let kernel_script = manifest_dir.join("assets/minimal_kernel_clean.py");
+    let kernel_script = manifest_dir.join("assets/python_minimal_kernel.py");
     let launcher = "import os,runpy,sys; os.environ['KERNEL_CONNECTION_FILE']=sys.argv[1]; runpy.run_path(sys.argv[2],run_name='__main__')";
     let spec_path = kernel_dir.join("kernel.json");
     fs::write(

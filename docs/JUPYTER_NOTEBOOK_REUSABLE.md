@@ -2,7 +2,7 @@ Yes. Jupyter already provides several pieces worth reusing, but it does **not** 
 
 ## Highest priority: unify execution through Jupyter semantics
 
-Currently, `minimal_kernel_clean.py` has two execution paths:
+Currently, `python_minimal_kernel.py` has two execution paths:
 
 - Jupyter requests: main kernel loop, execution count, IOPub messages
 - Direct agent socket: background client thread, private JSON response

@@ -19,7 +19,7 @@ REPL_DIR = os.path.expanduser("~/.jupyter-repl/kernels")
 
 def _kernel_path() -> str:
     """Path to the minimal kernel script."""
-    return os.path.join(os.path.dirname(__file__), "minimal_kernel_clean.py")
+    return os.path.join(os.path.dirname(__file__), "python_minimal_kernel.py")
 
 
 def _conn_path(name: str) -> str:

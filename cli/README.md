@@ -58,7 +58,7 @@ Kernel configuration can be supplied globally or through environment variables:
 --broker-socket    REPLMUX_BROKER_SOCKET
 ```
 
-The defaults are `~/.jupyter-repl/kernels`, `python3`, `minimal_kernel_clean.py`, and the short broker path `~/.replmux/b.sock`. Use `--json` for stable machine-readable lifecycle and execution responses.
+The defaults are `~/.jupyter-repl/kernels`, `python3`, `python_minimal_kernel.py`, and the short broker path `~/.replmux/b.sock`. Use `--json` for stable machine-readable lifecycle and execution responses.
 
 ### Claude Code MCP
 
@@ -136,7 +136,7 @@ For a local packaging-only iteration, reuse the existing release binary without 
 
 Fast mode still verifies static ZeroMQ linkage and creates the archive and checksum. It fails if `cli/target/release/replmux` does not already exist; use the default mode for production releases.
 
-The archive includes the CLI, `minimal_kernel_clean.py`, and this README. The Rust CLI uses its bundled libzmq for Jupyter control messages and does not require a system ZeroMQ installation. Python 3 with `pyzmq` is still required by the Python kernel worker.
+The archive includes the CLI, `python_minimal_kernel.py`, and this README. The Rust CLI uses its bundled libzmq for Jupyter control messages and does not require a system ZeroMQ installation. Python 3 with `pyzmq` is still required by the Python kernel worker.
 
 GitHub Actions builds and tests four native release targets on version tags or manual dispatch:
 

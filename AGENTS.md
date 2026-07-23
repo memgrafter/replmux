@@ -6,7 +6,7 @@ collaboration.
 
 - Read [`SKILL.md`](SKILL.md) for usage.
 - Rust CLI and protocol client: `cli/`
-- Minimal Python worker: `cli/assets/minimal_kernel_clean.py`
+- Minimal Python worker: `cli/assets/python_minimal_kernel.py`
 - Pi tools: `pi/extension/`
 - Kernel matrix: `tests/jupyter-kernels/`
 - Create a `tk` ticket before changing code.

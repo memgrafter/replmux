@@ -8,10 +8,10 @@ A Jupyter kernel system built for agent use. Persistent Python environments, sha
 
 ```
 pi extension (replTool.ts)
-├── repl: executes code via Unix socket → minimal_kernel_clean.py
+├── repl: executes code via Unix socket → python_minimal_kernel.py
 └── repl-manage: manages kernels via CLI → jupyter_repl_cli.py
 
-minimal_kernel_clean.py
+python_minimal_kernel.py
 ├── ZMQ channels (shell, iopub, control, heartbeat) — Jupyter protocol
 ├── Unix socket server — direct JSON access for extension
 └── Persistent Python namespace — shared across all callers
@@ -39,7 +39,7 @@ jupyter_repl.py (~300 lines)
 
 | File | Role | Deps |
 |------|------|------|
-| `minimal_kernel_clean.py` | Kernel: ZMQ + socket server, persistent namespace | pyzmq |
+| `python_minimal_kernel.py` | Kernel: ZMQ + socket server, persistent namespace | pyzmq |
 | `jupyter_repl_cli.py` | CLI: lifecycle management | stdlib + jupyter_repl (import) |
 | `jupyter_repl.py` | Client: Jupyter protocol (~300 lines) | pyzmq |
 | `shared_repl_socket.py` | **DEAD** — kernel has built-in socket now | — |

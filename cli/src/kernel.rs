@@ -356,7 +356,7 @@ impl KernelManager {
 }
 
 fn default_kernel_script() -> PathBuf {
-    let filename = "minimal_kernel_clean.py";
+    let filename = "python_minimal_kernel.py";
     if let Ok(current_directory) = env::current_dir() {
         let candidate = current_directory.join(filename);
         if candidate.exists() {
