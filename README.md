@@ -22,6 +22,12 @@ Replmux is intentionally a runtime primitive, not a sandbox or durable database.
 Kernel state disappears when its process dies, and executing code grants that
 kernel the user's local permissions.
 
+Claude Code can load the `repl` and `repl-manage` tools directly:
+
+```sh
+claude mcp add --scope user replmux -- replmux mcp
+```
+
 - [Agent usage](SKILL.md)
 - [CLI and installation](cli/README.md)
 - [Agent-oriented kernel recommendations](docs/AGENT_KERNEL_CATALOG.md)

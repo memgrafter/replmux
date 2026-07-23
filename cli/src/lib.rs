@@ -3,6 +3,7 @@ pub mod client;
 pub mod jupyter;
 pub mod kernel;
 pub mod kernelspec;
+pub mod mcp;
 pub mod models;
 
 pub use client::{ApiClient, ApiError};

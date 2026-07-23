@@ -149,7 +149,7 @@ replmux kernel create notebook --kernelspec python3
 replmux kernel attach existing /path/to/connection.json
 ```
 
-Standard Jupyter kernels use signed ZMQ execution; the custom Replmux worker retains its faster direct socket. Use `replmux serve` only when clients should share the optional local broker. Normal commands work without a running service.
+Standard Jupyter kernels use signed ZMQ execution; the custom Replmux worker retains its faster direct socket. Use `replmux serve` only when clients should share the optional local broker. Normal commands work without a running service. Claude Code users can register the same `repl` and `repl-manage` tools with `claude mcp add --scope user replmux -- replmux mcp`.
 
 ## How it works
 

@@ -6,6 +6,7 @@ use replmux_runtime_cli::broker::{
     KernelOperation, KernelRequest, KernelResponse, TransportMode, default_socket_path, dispatch,
     serve,
 };
+use replmux_runtime_cli::mcp::McpServer;
 use replmux_runtime_cli::{
     ApiClient, EnvironmentSpec, ReplResponse, Runtime, RuntimeCreate, RuntimeStatus, RuntimeUpdate,
     SnapshotPolicy,
@@ -56,6 +57,7 @@ enum Command {
         #[command(subcommand)]
         command: KernelCommand,
     },
+    Mcp,
     Serve,
     #[command(hide = true)]
     Create {
@@ -225,6 +227,15 @@ fn run() -> Result<(), Box<dyn Error>> {
             cli.transport,
             cli.broker_socket.unwrap_or_else(default_socket_path),
         ),
+        Command::Mcp => McpServer::new(
+            cli.kernel_dir,
+            cli.python,
+            cli.kernel_script,
+            cli.transport,
+            cli.broker_socket.unwrap_or_else(default_socket_path),
+        )
+        .serve()
+        .map_err(Into::into),
         Command::Serve => {
             serve(&cli.broker_socket.unwrap_or_else(default_socket_path)).map_err(Into::into)
         }

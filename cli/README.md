@@ -60,7 +60,39 @@ Kernel configuration can be supplied globally or through environment variables:
 
 The defaults are `~/.jupyter-repl/kernels`, `python3`, `minimal_kernel_clean.py`, and the short broker path `~/.replmux/b.sock`. Use `--json` for stable machine-readable lifecycle and execution responses.
 
-### Local and served modes
+### Claude Code MCP
+
+The binary includes a stdio MCP server exposing the same two agent tools:
+`repl` executes code in persistent kernels, and `repl-manage` creates, lists,
+connects to, and deletes kernels.
+
+Register it for the current user:
+
+```bash
+claude mcp add --scope user replmux -- replmux mcp
+claude mcp get replmux
+```
+
+Or commit this project-scoped `.mcp.json` in another repository:
+
+```json
+{
+  "mcpServers": {
+    "replmux": {
+      "type": "stdio",
+      "command": "replmux",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+The `replmux` binary must be on the environment `PATH` inherited by Claude
+Code. Existing `REPLMUX_KERNEL_DIR`, `REPLMUX_PYTHON`,
+`REPLMUX_KERNEL_SCRIPT`, and `REPLMUX_BROKER_SOCKET` configuration applies to
+the MCP server. Kernel execution is unsandboxed and has the user's permissions.
+
+## Local and served modes
 
 Kernel commands default to `--transport auto`. Each command attempts the broker Unix socket once. An active broker receives the real request; `ENOENT` or `ECONNREFUSED` immediately short-circuits to the same in-process service implementation. Permission, protocol, and other broker failures are returned rather than bypassed.
 
