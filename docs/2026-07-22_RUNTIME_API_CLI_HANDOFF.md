@@ -1,0 +1,289 @@
+# Runtime API and Rust CLI Handoff
+
+**Date:** 2026-07-22 PDT
+**Repository:** `/Users/trentrobbins/code/multirepl`
+**Audience:** Next implementation agent
+
+## Summary
+
+This work adds the first durable Multirepl control-plane object: runtime metadata. It consists of:
+
+1. A standalone FastAPI runtime CRUD service with SQLite persistence.
+2. A Rust CLI that consumes the service's OpenAPI-described HTTP object interface.
+
+The implementation is intentionally limited to runtime CRUD. It does not yet start, stop, attach, snapshot, or execute against kernels.
+
+## Commits
+
+```text
+5f4ca9e Add runtime CRUD service
+77eec50 Add runtime API CLI
+```
+
+Both commits are on `main`.
+
+## FastAPI service
+
+Location: `service/`
+
+### Endpoints
+
+```text
+POST   /v1/runtimes
+GET    /v1/runtimes
+GET    /v1/runtimes/{runtime_id}
+PATCH  /v1/runtimes/{runtime_id}
+DELETE /v1/runtimes/{runtime_id}
+```
+
+Generated interfaces:
+
+```text
+GET /openapi.json
+GET /docs
+```
+
+Health check:
+
+```text
+GET /healthz
+```
+
+### Runtime representation
+
+A runtime record contains:
+
+```text
+id
+name
+language
+environment
+snapshot_policy
+status
+worker_generation
+revision
+created_at
+updated_at
+```
+
+Runtime names are unique case-insensitively. New runtimes begin with:
+
+```text
+status = idle
+worker_generation = 0
+revision = 1
+```
+
+A PATCH increments `revision` when at least one non-null field changes. DELETE currently performs a hard delete.
+
+### Persistence
+
+The service uses Python's standard `sqlite3` module. The default database is:
+
+```text
+~/.jupyter-repl/multirepl.db
+```
+
+Override it with:
+
+```bash
+MULTIREPL_DB_PATH=/path/to/runtime.db
+```
+
+SQLite WAL and a five-second busy timeout are enabled.
+
+### Run
+
+```bash
+cd /Users/trentrobbins/code/multirepl/service
+uv sync --dev
+uv run uvicorn multirepl_service.app:app --reload
+```
+
+### Tests
+
+```bash
+cd /Users/trentrobbins/code/multirepl/service
+uv run pytest
+```
+
+Last observed result:
+
+```text
+7 passed
+```
+
+There is one upstream `StarletteDeprecationWarning` concerning FastAPI's `TestClient` and `httpx`; it does not affect test results.
+
+### Important files
+
+```text
+service/multirepl_service/app.py       FastAPI routes and application factory
+service/multirepl_service/models.py    Pydantic/OpenAPI models
+service/multirepl_service/store.py     SQLite repository
+service/tests/test_runtime_api.py      HTTP integration tests
+service/README.md                      Usage and curl examples
+service/pyproject.toml                 Python dependencies
+service/uv.lock                        Locked environment
+```
+
+## Rust CLI
+
+Location: `cli/`
+
+Binary name:
+
+```text
+multirepl
+```
+
+### Commands
+
+```bash
+multirepl runtime create analysis
+multirepl runtime list
+multirepl runtime get rt_ID
+multirepl runtime update rt_ID --status running
+multirepl runtime delete rt_ID
+```
+
+Global options:
+
+```text
+--api-url URL
+--json
+```
+
+The API URL defaults to:
+
+```text
+http://127.0.0.1:8000
+```
+
+It can also be configured with:
+
+```bash
+MULTIREPL_API_URL=http://host:8000
+```
+
+Create and update commands support environment and snapshot-policy fields. For partial nested updates, the CLI first fetches the current runtime and merges the changed nested fields before PATCHing the complete nested object.
+
+### HTTP behavior
+
+The client:
+
+- Uses a 30-second request timeout.
+- Deserializes FastAPI runtime objects directly into Rust models.
+- Extracts FastAPI `detail` values for non-success responses.
+- Percent-encodes runtime IDs through URL path-segment handling.
+- Supports concise tables or pretty JSON output.
+
+### Tests
+
+The user ran:
+
+```bash
+cd /Users/trentrobbins/code/multirepl/cli
+cargo test
+```
+
+Last observed result:
+
+```text
+3 integration tests passed
+all unit and doc-test targets passed
+```
+
+The integration tests use a small local TCP mock server and cover:
+
+- Runtime object endpoint construction.
+- Create request JSON shape.
+- FastAPI error-detail extraction.
+
+### Important files
+
+```text
+cli/src/client.rs          HTTP client and errors
+cli/src/models.rs          OpenAPI-aligned Rust data models
+cli/src/main.rs            Clap command interface and output
+cli/src/lib.rs             Public client/model exports
+cli/tests/api_client.rs    Mock HTTP integration tests
+cli/README.md              Usage
+cli/Cargo.toml             Crate metadata and dependencies
+cli/Cargo.lock             Locked dependencies
+```
+
+## Design decisions
+
+### Runtime is metadata, not a process
+
+The current service deliberately does not equate a runtime with a kernel PID. Future work should preserve this distinction:
+
+```text
+Runtime = durable identity and metadata
+Worker  = replaceable kernel process
+Branch  = state lineage
+```
+
+### Hand-written Rust client
+
+The Rust models are hand-written against the small generated OpenAPI surface rather than generated by a large OpenAPI toolchain. This keeps the client legible but introduces contract-drift risk.
+
+### No kernel side effects
+
+Changing status to `running` currently updates metadata only. It does not launch a kernel. DELETE does not shut down a kernel because worker lifecycle is outside this CRUD scope.
+
+## Known limitations
+
+1. No authentication or actor identity.
+2. No ETag or `If-Match` concurrency control.
+3. No idempotency keys.
+4. No worker/kernel lifecycle integration.
+5. No soft deletion or tombstones.
+6. Runtime status can be directly PATCHed even though future lifecycle code may need to own it.
+7. `worker_generation` is returned but not mutated by this service.
+8. Rust models can drift from the generated FastAPI OpenAPI schema.
+9. The CLI cannot explicitly clear an existing environment digest; it can only set one.
+10. No live service-to-CLI end-to-end test yet; service and client are currently tested independently.
+11. No Unix-socket HTTP transport yet; the CLI uses ordinary HTTP/HTTPS.
+
+## Recommended next work
+
+### First: contract conformance
+
+Add a test that starts the FastAPI app and exercises the compiled Rust client against it, or generate a checked contract fixture from `/openapi.json` and verify the Rust model surface against it.
+
+### Second: concurrency semantics
+
+Add runtime ETags/revisions to HTTP responses and require `If-Match` for updates and deletes. Keep SQLite updates compare-and-swap safe.
+
+### Third: lifecycle integration
+
+Introduce a worker resource or internal lifecycle layer that can reconcile desired runtime state with `jupyter_repl_cli.py`. Do not place process management directly in the SQLite repository.
+
+### Fourth: identity and provenance
+
+Authenticate callers and derive actor identity server-side rather than accepting untrusted actor IDs in request bodies.
+
+### Fifth: decide workspace structure
+
+The Rust CLI is currently an isolated crate at `cli/`. Before adding the planned Rust broker, decide whether the repository should become a Cargo workspace with shared API-model and client crates.
+
+## Repository state warning
+
+At handoff time, unrelated work remained outside these two commits, including:
+
+```text
+pi/extension/replTool.ts        modified
+.tickets/mul-1v97.md            untracked
+.tickets/mul-hvno.md            untracked
+docs/                           other untracked documents
+```
+
+Do not use `git add -A`. Inspect and stage only files belonging to the active ticket.
+
+The handoff document itself is associated with ticket:
+
+```text
+mul-jlgu Write runtime API CLI handoff
+```
