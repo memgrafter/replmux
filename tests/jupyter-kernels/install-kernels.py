@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -101,6 +102,20 @@ def run_command(command: list[str], dry_run: bool) -> int:
     return subprocess.run(command, check=False).returncode
 
 
+def normalize_kernelspec_executables(prefix: Path) -> None:
+    kernelspec_root = prefix / "share" / "jupyter" / "kernels"
+    for kernelspec_path in kernelspec_root.glob("*/kernel.json"):
+        kernelspec = json.loads(kernelspec_path.read_text())
+        argv = kernelspec.get("argv", [])
+        if not argv or Path(argv[0]).name != argv[0]:
+            continue
+        environment_executable = prefix / "bin" / argv[0]
+        if not environment_executable.is_file():
+            continue
+        argv[0] = str(environment_executable)
+        kernelspec_path.write_text(json.dumps(kernelspec, indent=2) + "\n")
+
+
 def main() -> int:
     arguments = parse_arguments()
     try:
@@ -133,6 +148,8 @@ def main() -> int:
                 file=sys.stderr,
             )
             return return_code
+        if not arguments.dry_run:
+            normalize_kernelspec_executables(environment_root / kernel["id"])
     return 0
 
 

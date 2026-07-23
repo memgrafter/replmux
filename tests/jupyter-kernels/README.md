@@ -52,6 +52,8 @@ Inspect the commands without downloading packages or changing environments:
 ```
 
 Package and channel declarations live beside each kernel in `kernels.toml`.
+Environment-local kernelspec executables are normalized to absolute paths so
+Replmux can launch them without activating the micromamba environment first.
 Provisioning stops at the first package resolution or installation failure so a
 partially available matrix is never reported as complete. Remove
 `tests/jupyter-kernels/.kernels/` to reclaim the environments' disk space.
