@@ -1,117 +1,135 @@
 ---
 name: multirepl
-description: Multiplayer Python for agents. Persistent Jupyter kernels with a pi extension — zero subprocess overhead per call, shared namespaces, full protocol access.
+description: Keep Python variables, imports, and results alive across turns, or share one live Python workspace between agents. Use for repeated calculations and collaborative analysis without rebuilding state or launching Python for every call.
 ---
 
-Give agents persistent Python environments across turns via Jupyter kernels. Managed by a pi extension — `repl` for code execution, `repl-manage` for lifecycle. Shared namespaces for multiplayer, isolated per kernel.
+Use Multirepl as durable working memory for Python computation: create a named workspace once, then return to it from later turns or other agents.
 
 ## Why use it
 
-- **Persistent state across turns** — variables, imports, execution history survive between agent interactions
-- **Zero subprocess overhead** — `repl` talks to the kernel directly over a Unix socket (no Python per call)
-- **Multiplayer** — multiple agents share the same kernel namespace, read/write state freely
-- **Minimal kernel** — lightweight Python kernel (~300 lines, pyzmq only), no ipykernel bloat
-- **Full Jupyter protocol** — rich output, mime bundles, tab completion, inspection, interrupt
+- **Preserve computational state** — keep variables, imports, functions, and intermediate results across tool calls.
+- **Share work between agents** — agents using the same kernel name see the same namespace immediately.
+- **Avoid repeated setup** — import libraries and load data once instead of recreating them for every calculation.
+- **Keep reasoning concise** — perform exact calculations in Python rather than carrying large intermediate values in conversation context.
+- **Stay fast** — repeated `repl` calls use Unix sockets instead of launching a Python subprocess each time.
 
 ## When to use
 
-- An agent needs to run Python code and keep state between turns
-- Multiple agents need to share a Python environment (multiplayer)
-- You need rich output (DataFrames, plots) not just stdout
-- You want a lightweight kernel without ipykernel's 30+ transitive deps
+- A task needs several related Python calculations.
+- Later turns will reuse earlier values, imports, or helper functions.
+- Multiple agents need to collaborate on the same analytical state.
+- You need exact numeric, text-processing, or data-transformation results.
+- You want an inspectable scratch environment that survives between calls.
 
 ## When NOT to use
 
-- You only need a one-off subprocess call — `subprocess.run` is simpler
-- You need GPU access or specialized compute — a kernel won't help with resource allocation
-- You need full ipykernel features (magics, async, debugging) — use ipykernel instead
+- A single `python -c` or `subprocess.run` call is simpler.
+- The code is untrusted; Multirepl is not a sandbox.
+- Concurrent agents may mutate the same values without coordinating.
+- You require transactions, rollback, durable replay, or automatic crash restoration.
+- You require full `ipykernel` behavior such as magics, widgets, async integration, or debugging.
 
 ## Usage
 
-### pi extension tools
+### 1. Create a workspace
 
-**Execute code** (zero subprocess):
-```
-repl { code: "x = 42", name: "pri-20260720013947" }
-→ pri-20260720013947: x = 42 (ok)
-
-repl { code: "x", name: "pri-20260720013947" }
-→ pri-20260720013947: x → 42
+```text
+repl-manage { action: "create", name: "analysis" }
 ```
 
-**Manage kernels**:
-```
-repl-manage { action: "create" }                  → auto-generates name (pri-20260720013947)
-repl-manage { action: "create", name: "my-kernel" } → explicit name
-repl-manage { action: "list" }                    → table of running kernels
-repl-manage { action: "connect", name: "my-kernel" } → connection JSON
-repl-manage { action: "delete", name: "my-kernel" } → shuts down
+Omit `name` to generate one automatically:
+
+```text
+repl-manage { action: "create" }
 ```
 
-### CLI (standalone)
+### 2. Build persistent state
+
+```text
+repl { name: "analysis", code: "from math import factorial\nvalues = [3, 5, 8, 13]" }
+```
+
+Statements persist state and normally return:
+
+```text
+(ok)
+```
+
+### 3. Reuse it later
+
+```text
+repl { name: "analysis", code: "sum(values)" }
+```
+
+```text
+→ 29
+```
+
+### 4. Inspect and clean up
+
+```text
+repl-manage { action: "list" }
+repl-manage { action: "connect", name: "analysis" }
+repl-manage { action: "delete", name: "analysis" }
+```
+
+Delete temporary workspaces when they are no longer needed.
+
+## Examples
+
+### Multi-step calculation
+
+```text
+repl-manage { action: "create", name: "probability" }
+repl { name: "probability", code: "from math import comb\ntotal = comb(52, 5)" }
+repl { name: "probability", code: "royal_flushes = 4\nroyal_flushes / total" }
+```
+
+```text
+→ 1.5390771693292702e-06
+```
+
+### Shared agent workspace
+
+```text
+Agent A: repl { name: "shared", code: "measurements = [10.2, 10.5, 9.9]" }
+Agent B: repl { name: "shared", code: "sum(measurements) / len(measurements)" }
+```
+
+```text
+→ 10.200000000000001
+```
+
+The namespace is shared mutable state. Coordinate writes and use separate kernel names when isolation matters.
+
+## Output
+
+- Expression: `→ <repr(value)>`
+- Statements: `(ok)`
+- Printed output: `stdout: ...`
+- Standard error: `stderr: ...`
+- Exception: `✗ <exception>`
+
+A workspace remains available until its kernel exits or is deleted. If a kernel dies, its in-memory Python state is lost.
+
+## Standalone CLI
+
+Use the Rust CLI outside Pi:
 
 ```bash
-jupyter-repl create <name>       # start a named kernel
-jupyter-repl list                # show running kernels
-jupyter-repl connect <name>      # print connection JSON
-jupyter-repl delete <name>       # shut down a kernel
+multirepl kernel create analysis
+multirepl kernel exec analysis 'x = 40'
+multirepl kernel exec analysis 'x + 2'
+multirepl kernel list
+multirepl kernel delete analysis
 ```
 
-### Python client library
+Use `multirepl serve` only when clients should share the optional local broker. Normal commands work without a running service.
 
-```python
-from jupyter_repl import KernelClient
-import json
+## How it works
 
-with open("~/.jupyter-repl/kernels/my-kernel.json") as f:
-    conn = json.load(f)
-client = KernelClient(conn)
+The Pi extension prefers the local Rust broker when one is running and otherwise talks directly to the named Python kernel over a Unix socket. Lifecycle operations use the Rust CLI. The Python worker requires Python 3 with `pyzmq`; the Rust binary bundles its own libzmq.
 
-reply, outputs = client.execute("x = 42; x", timeout=30)
-for msg in outputs:
-    if msg["msg_type"] == "execute_result":
-        print(msg["content"]["data"]["text/plain"])
-client.close()
-```
+For transport options, runtime metadata commands, release procedures, and architecture details, see [cli/README.md](cli/README.md) and [docs/](docs/).
 
-## Architecture
-
-```
-Agent A ──┐
-Agent B ──┼── Unix socket (JSON) ──→ minimal_kernel_clean.py ──→ Python namespace
-Agent C ──┘                          (ZMQ + socket server)
-
-repl-manage ──→ jupyter_repl_cli.py ──→ spawns/manages kernels
-```
-
-- **Kernel** (`minimal_kernel_clean.py`): Jupyter protocol over ZMQ + direct JSON over Unix socket. Persistent Python namespace.
-- **CLI** (`jupyter_repl_cli.py`): Lifecycle management. Spawns kernels, tracks PIDs, reads connection files.
-- **Client** (`jupyter_repl.py`): ~300 line Jupyter protocol client. Used by CLI for graceful shutdown.
-- **Extension** (`pi/extension/replTool.ts`): pi tools. `repl` talks kernel socket directly. `repl-manage` calls CLI.
-
-## Multiplayer model
-
-One kernel, multiple agents, shared namespace. Agents read/write freely — coordination is the agent's responsibility, not the kernel's.
-
-```
-Agent A: repl { code: "x = 42", name: "shared" }
-Agent B: repl { code: "x", name: "shared" }     → 42
-Agent B: repl { code: "x = 99", name: "shared" } → (ok)
-Agent A: repl { code: "x", name: "shared" }      → 99
-```
-
-## Output format
-
-- **repl call**: `repl: <kernel-name>` with code prefixed by `>>>` / `...`
-- **repl result**: `→ <value>` (expressions), `(ok)` (exec), `✗ <error>` (errors)
-- **repl-manage**: plain text status, JSON for connect
-
-## File structure
-
-```
-jupyter_repl_cli.py     # CLI: create/list/connect/delete
-jupyter_repl.py         # Client: ~300 lines, pyzmq only
-minimal_kernel_clean.py # Kernel: ZMQ + Unix socket server
-shared_repl_socket.py   # DEAD — replace with kernel's built-in socket
-pi/extension/           # pi extension (symlink to replTool.ts)
-```
+**Cost:** one persistent Python worker per active workspace and coordination around shared mutable state. **Benefit:** fast, exact, reusable computation across turns and agents.
