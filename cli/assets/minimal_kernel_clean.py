@@ -132,15 +132,11 @@ class Kernel:
         # Wire secrets
         supplied_connection = self._read_connection_file()
         supplied_key = supplied_connection.get("key", "") if supplied_connection else ""
-        if isinstance(supplied_key, str):
+        if isinstance(supplied_key, str) and supplied_key:
             self.connection_key = supplied_key
-            self.key = supplied_key.encode()
         else:
-            self.key = supplied_key or os.urandom(32)
-            self.connection_key = self.key.hex()
-        if not self.key:
-            self.key = os.urandom(32)
-            self.connection_key = self.key.hex()
+            self.connection_key = os.urandom(32).hex()
+        self.key = self.connection_key.encode()
         self.session_id: str = uuid.uuid4().hex
 
         # ZMQ

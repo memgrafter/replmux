@@ -23,3 +23,11 @@ Test failure exposed a second boundary bug: the bundled kernel rewrote a supplie
 **2026-07-23T06:33:42Z**
 
 Fixed connection serialization to retain the exact supplied textual key while using its UTF-8 bytes for HMAC. Random internally generated keys remain hex-serialized.
+
+**2026-07-23T06:36:00Z**
+
+Remaining lifecycle failure is the generated-key branch: it generated random binary HMAC bytes but serialized their hex text. The Rust client correctly used the serialized text literally, leaving the custom kernel on different bytes.
+
+**2026-07-23T06:36:20Z**
+
+Generated keys now originate as their serialized hex string and the kernel uses that string UTF-8 encoded for HMAC, matching standard Jupyter semantics and the client.
