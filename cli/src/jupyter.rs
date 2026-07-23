@@ -485,12 +485,6 @@ fn duration_millis(duration: Duration) -> i32 {
 }
 
 fn decode_key(key: &str) -> Result<Vec<u8>, String> {
-    if key.is_empty() {
-        return Ok(Vec::new());
-    }
-    if key.len().is_multiple_of(2) && key.bytes().all(|value| value.is_ascii_hexdigit()) {
-        return decode_hex(key);
-    }
     Ok(key.as_bytes().to_vec())
 }
 
@@ -572,9 +566,10 @@ mod tests {
     }
 
     #[test]
-    fn decodes_hex_and_text_keys() {
-        assert_eq!(decode_key("616263").unwrap(), b"abc");
+    fn preserves_connection_key_bytes() {
+        assert_eq!(decode_key("616263").unwrap(), b"616263");
         assert_eq!(decode_key("not-hex").unwrap(), b"not-hex");
+        assert_eq!(decode_key("").unwrap(), b"");
     }
 
     #[test]

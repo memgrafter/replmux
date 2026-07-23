@@ -133,10 +133,7 @@ class Kernel:
         supplied_connection = self._read_connection_file()
         supplied_key = supplied_connection.get("key", "") if supplied_connection else ""
         if isinstance(supplied_key, str):
-            try:
-                self.key = bytes.fromhex(supplied_key)
-            except ValueError:
-                self.key = supplied_key.encode()
+            self.key = supplied_key.encode()
         else:
             self.key = supplied_key or os.urandom(32)
         if not self.key:
