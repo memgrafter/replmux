@@ -2,8 +2,8 @@
 """Full lifecycle test for the replmux project.
 
 Usage:
-    python3 test_lifecycle.py          # uses 'lifecycle-test' kernel
-    python3 test_lifecycle.py myname   # uses 'myname' kernel
+    python3 lifecycle.py          # uses 'lifecycle-test' kernel
+    python3 lifecycle.py myname   # uses 'myname' kernel
 
 Requires pyzmq:  pip install pyzmq
 """

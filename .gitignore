@@ -1,7 +1,8 @@
 # Python environments and caches
 .venv/
 venv/
-test/.kernels/
+cli/tests/.venv/
+tests/jupyter-kernels/.kernels/
 __pycache__/
 *.py[cod]
 *$py.class

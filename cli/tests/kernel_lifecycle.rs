@@ -9,7 +9,7 @@ use replmux_runtime_cli::jupyter::{JupyterClient, JupyterConnection};
 fn command(kernel_dir: &PathBuf) -> Command {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repository = manifest_dir.parent().unwrap();
-    let python = repository.join(".venv/bin/python");
+    let python = manifest_dir.join("tests/.venv/bin/python");
     let python = if python.exists() {
         python
     } else {
@@ -22,7 +22,7 @@ fn command(kernel_dir: &PathBuf) -> Command {
         .arg("--python")
         .arg(python)
         .arg("--kernel-script")
-        .arg(repository.join("minimal_kernel_clean.py"))
+        .arg(manifest_dir.join("assets/minimal_kernel_clean.py"))
         .arg("--broker-socket")
         .arg(kernel_dir.join("broker.sock"));
     command
@@ -182,12 +182,9 @@ fn launches_kernelspec_and_attaches_standard_connection() {
     };
     fs::create_dir_all(&kernel_dir).unwrap();
 
-    let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    let python = repository.join(".venv/bin/python");
-    let kernel_script = repository.join("minimal_kernel_clean.py");
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let python = manifest_dir.join("tests/.venv/bin/python");
+    let kernel_script = manifest_dir.join("assets/minimal_kernel_clean.py");
     let launcher = "import os,runpy,sys; os.environ['KERNEL_CONNECTION_FILE']=sys.argv[1]; runpy.run_path(sys.argv[2],run_name='__main__')";
     let spec_path = kernel_dir.join("kernel.json");
     fs::write(

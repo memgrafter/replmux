@@ -13,11 +13,8 @@ require_command() {
 }
 
 prepare_kernel_environment() {
-  printf '\n==> Preparing Python kernel environment\n'
-  (
-    cd "${REPO_ROOT}"
-    uv sync --locked
-  )
+  printf '\n==> Preparing Rust kernel test environment\n'
+  uv sync --project "${REPO_ROOT}/cli/tests" --locked
 }
 
 run_service_tests() {

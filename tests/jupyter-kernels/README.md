@@ -33,25 +33,25 @@ them in the matrix.
 ## Provisioning the matrix
 
 The installer creates one isolated micromamba environment per kernel under
-`test/.kernels/`. Install the complete matrix with:
+`tests/jupyter-kernels/.kernels/`. Install the complete matrix with:
 
 ```sh
-./test/install-kernels.py
+./tests/jupyter-kernels/install-kernels.py
 ```
 
 Install only selected entries by ID:
 
 ```sh
-./test/install-kernels.py python-ipykernel r-irkernel
+./tests/jupyter-kernels/install-kernels.py python-ipykernel r-irkernel
 ```
 
 Inspect the commands without downloading packages or changing environments:
 
 ```sh
-./test/install-kernels.py --dry-run
+./tests/jupyter-kernels/install-kernels.py --dry-run
 ```
 
 Package and channel declarations live beside each kernel in `kernels.toml`.
 Provisioning stops at the first package resolution or installation failure so a
 partially available matrix is never reported as complete. Remove
-`test/.kernels/` to reclaim the environments' disk space.
+`tests/jupyter-kernels/.kernels/` to reclaim the environments' disk space.
