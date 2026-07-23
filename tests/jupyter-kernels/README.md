@@ -52,8 +52,10 @@ Inspect the commands without downloading packages or changing environments:
 ```
 
 Package and channel declarations live beside each kernel in `kernels.toml`.
-Environment-local kernelspec executables are normalized to absolute paths so
-Replmux can launch them without activating the micromamba environment first.
+Environment-local kernelspec executables are normalized so Replmux can launch
+them without activating the micromamba environment first. .NET Interactive is
+installed from its official NuGet tool because the conda-forge package omits a
+compatible PowerShell automation assembly.
 Provisioning stops at the first package resolution or installation failure so a
 partially available matrix is never reported as complete. Remove
 `tests/jupyter-kernels/.kernels/` to reclaim the environments' disk space.

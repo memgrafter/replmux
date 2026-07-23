@@ -80,7 +80,12 @@ project_url = "https://github.com/dotnet/interactive"
 
 [kernels.micromamba]
 channels = ["conda-forge"]
-packages = ["dotnet-interactive"]
+packages = ["dotnet", "nodejs"]
 setup = [
-  ["dotnet-interactive", "jupyter", "install", "--path", "{prefix}/share/jupyter/kernels"],
+  [
+    "sh", "-c",
+    "if [ -x \"$1/dotnet-interactive\" ]; then \"$1/dotnet-interactive\" --version; else dotnet tool install --tool-path \"$1\" Microsoft.dotnet-interactive; fi",
+    "setup-dotnet-tool", "{prefix}/dotnet-tools",
+  ],
+  ["{prefix}/dotnet-tools/dotnet-interactive", "jupyter", "install", "--path", "{prefix}/share/jupyter/kernels"],
 ]

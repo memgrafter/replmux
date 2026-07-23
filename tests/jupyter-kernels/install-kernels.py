@@ -107,12 +107,19 @@ def normalize_kernelspec_executables(prefix: Path) -> None:
     for kernelspec_path in kernelspec_root.glob("*/kernel.json"):
         kernelspec = json.loads(kernelspec_path.read_text())
         argv = kernelspec.get("argv", [])
-        if not argv or Path(argv[0]).name != argv[0]:
-            continue
-        environment_executable = prefix / "bin" / argv[0]
-        if not environment_executable.is_file():
-            continue
-        argv[0] = str(environment_executable)
+        dotnet_interactive = prefix / "dotnet-tools" / "dotnet-interactive"
+        if argv[:2] == ["dotnet", "interactive"] and dotnet_interactive.is_file():
+            argv[:2] = [
+                "micromamba",
+                "run",
+                "--prefix",
+                str(prefix),
+                str(dotnet_interactive),
+            ]
+        elif argv and Path(argv[0]).name == argv[0]:
+            environment_executable = prefix / "bin" / argv[0]
+            if environment_executable.is_file():
+                argv[0] = str(environment_executable)
         kernelspec_path.write_text(json.dumps(kernelspec, indent=2) + "\n")
 
 
