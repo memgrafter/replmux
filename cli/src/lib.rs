@@ -2,6 +2,7 @@ pub mod broker;
 pub mod client;
 pub mod jupyter;
 pub mod kernel;
+pub mod kernelspec;
 pub mod models;
 
 pub use client::{ApiClient, ApiError};

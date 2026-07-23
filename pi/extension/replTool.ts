@@ -130,10 +130,30 @@ async function sendToBroker(kernelName: string, code: string): Promise<Record<st
 	return wireResponse.response.response;
 }
 
+async function executeViaCli(
+	pi: ExtensionAPI,
+	kernelName: string,
+	code: string,
+	signal: AbortSignal | undefined,
+): Promise<Record<string, any>> {
+	const result = await pi.exec(resolvePath(DEFAULT_BINARY), ["--json", "exec", kernelName, code], {
+		signal,
+		timeout: 30_000,
+	});
+	if (result.code !== 0) {
+		throw new Error(result.stderr.trim() || result.stdout.trim() || `multirepl exited with code ${result.code}`);
+	}
+	try {
+		return JSON.parse(result.stdout);
+	} catch {
+		throw new Error(`Invalid JSON from multirepl: ${result.stdout.slice(0, 200)}`);
+	}
+}
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
-const replTool: ToolDefinition = {
+function createReplTool(pi: ExtensionAPI): ToolDefinition {
+	return {
 	name: "repl",
 	label: "Repl",
 	description: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
@@ -155,7 +175,7 @@ const replTool: ToolDefinition = {
 	async execute(
 		_toolCallId,
 		params: Static<typeof replSchema>,
-		_signal,
+		signal,
 		_onUpdate,
 		_ctx: ExtensionContext,
 	): Promise<AgentToolResult<Record<string, any>>> {
@@ -170,10 +190,12 @@ const replTool: ToolDefinition = {
 				if (!(error instanceof BrokerUnavailableError)) throw error;
 				transport = "kernel";
 				const socketPath = getSocketPath(target);
-				if (!socketPath) {
-					throw new Error(`Cannot find socket for kernel '${target}'. Kernel may be dead.`);
+				if (socketPath) {
+					result = await sendToKernel(socketPath, params.code);
+				} else {
+					transport = "cli-jupyter";
+					result = await executeViaCli(pi, target, params.code, signal);
 				}
-				result = await sendToKernel(socketPath, params.code);
 			}
 			let resultText = "";
 			if (!result.ok) {
@@ -191,7 +213,8 @@ const replTool: ToolDefinition = {
 			return { content: [{ type: "text", text: err.message }], details: undefined, isError: true };
 		}
 	},
-};
+	};
+}
 
 function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 	return {
@@ -222,6 +245,6 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 // ── Extension ───────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI): void {
-	pi.registerTool(replTool);
+	pi.registerTool(createReplTool(pi));
 	pi.registerTool(createReplManageTool(pi));
 }

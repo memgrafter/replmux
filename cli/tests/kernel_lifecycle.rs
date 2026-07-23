@@ -4,6 +4,8 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use multirepl_runtime_cli::jupyter::{JupyterClient, JupyterConnection};
+
 fn command(kernel_dir: &PathBuf) -> Command {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repository = manifest_dir.parent().unwrap();
@@ -87,6 +89,43 @@ fn manages_kernel_and_executes_persistent_code() {
     assert!(connect.status.success());
     assert!(String::from_utf8_lossy(&connect.stdout).contains("socket_path"));
 
+    let connection: JupyterConnection =
+        serde_json::from_slice(&fs::read(kernel_dir.join(format!("{name}.json"))).unwrap())
+            .unwrap();
+    let mut jupyter = JupyterClient::connect(&connection).unwrap();
+    assert!(jupyter.heartbeat(Duration::from_secs(2)).unwrap());
+    let info = jupyter.kernel_info(Duration::from_secs(2)).unwrap();
+    assert_eq!(info.content["implementation"], "minimal_kernel");
+    jupyter
+        .execute("jupyter_value = 6", Duration::from_secs(5))
+        .unwrap();
+    let execution = jupyter
+        .execute("jupyter_value * 7", Duration::from_secs(5))
+        .unwrap();
+    assert_eq!(execution.reply.content["status"], "ok");
+    assert!(execution.outputs.iter().any(|message| {
+        message.message_type() == Some("execute_result")
+            && message.content["data"]["text/plain"] == "42"
+    }));
+    let completion = jupyter
+        .complete("jupyter_value.bi", None, Duration::from_secs(2))
+        .unwrap();
+    assert!(
+        completion.content["matches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str() == Some("jupyter_value.bit_length()"))
+    );
+    let inspection = jupyter
+        .inspect("jupyter_value.bit_length", None, 0, Duration::from_secs(2))
+        .unwrap();
+    assert_eq!(inspection.content["found"], true);
+    let completeness = jupyter
+        .is_complete("for value in values:", Duration::from_secs(2))
+        .unwrap();
+    assert_eq!(completeness.content["status"], "incomplete");
+
     let assign = command(&kernel_dir)
         .args(["exec", &name, "answer = 42"])
         .output()
@@ -127,6 +166,91 @@ fn manages_kernel_and_executes_persistent_code() {
         .unwrap();
     assert!(!missing.status.success());
     assert!(String::from_utf8_lossy(&missing.stderr).contains("not found"));
+}
+
+#[test]
+fn launches_kernelspec_and_attaches_standard_connection() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos();
+    let kernel_dir = PathBuf::from(format!("/tmp/mr-spec-{}-{unique}", std::process::id()));
+    let name = "kernelspec-lifecycle".to_owned();
+    let _cleanup = KernelCleanup {
+        directory: kernel_dir.clone(),
+        name: name.clone(),
+    };
+    fs::create_dir_all(&kernel_dir).unwrap();
+
+    let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let python = repository.join(".venv/bin/python");
+    let kernel_script = repository.join("minimal_kernel_clean.py");
+    let launcher = "import os,runpy,sys; os.environ['KERNEL_CONNECTION_FILE']=sys.argv[1]; runpy.run_path(sys.argv[2],run_name='__main__')";
+    let spec_path = kernel_dir.join("kernel.json");
+    fs::write(
+        &spec_path,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "argv": [python, "-c", launcher, "{connection_file}", kernel_script],
+            "display_name": "Multirepl test kernel",
+            "language": "python"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let create = command(&kernel_dir)
+        .args(["kernel", "create", &name, "--kernelspec"])
+        .arg(&spec_path)
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "{}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let connection_path = kernel_dir.join(format!("{name}.json"));
+    let mut connection: serde_json::Value =
+        serde_json::from_slice(&fs::read(&connection_path).unwrap()).unwrap();
+    connection.as_object_mut().unwrap().remove("socket_path");
+    let external_path = kernel_dir.join("external.json");
+    fs::write(
+        &external_path,
+        serde_json::to_vec_pretty(&connection).unwrap(),
+    )
+    .unwrap();
+
+    let attach = command(&kernel_dir)
+        .args(["kernel", "attach", "attached"])
+        .arg(&external_path)
+        .output()
+        .unwrap();
+    assert!(attach.status.success());
+    let execute = command(&kernel_dir)
+        .args(["kernel", "exec", "attached", "21 * 2"])
+        .output()
+        .unwrap();
+    assert!(execute.status.success());
+    assert_eq!(String::from_utf8_lossy(&execute.stdout).trim(), "42");
+    assert!(
+        command(&kernel_dir)
+            .args(["kernel", "delete", "attached"])
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    assert!(
+        command(&kernel_dir)
+            .args(["kernel", "delete", &name])
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
 }
 
 #[test]

@@ -9,6 +9,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::jupyter::JupyterMessage;
 use crate::kernel::{KernelManager, KernelStatus, ReplResponse};
 
 const IO_TIMEOUT: Duration = Duration::from_secs(30);
@@ -45,11 +46,49 @@ pub struct KernelRequest {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum KernelOperation {
-    Create { name: String },
+    Create {
+        name: String,
+        kernelspec: Option<String>,
+    },
     List,
-    Connect { name: String },
-    Delete { name: String },
-    Exec { name: String, code: String },
+    Attach {
+        name: String,
+        connection_file: PathBuf,
+    },
+    Connect {
+        name: String,
+    },
+    Delete {
+        name: String,
+    },
+    Exec {
+        name: String,
+        code: String,
+    },
+    Complete {
+        name: String,
+        code: String,
+        cursor: Option<usize>,
+    },
+    Inspect {
+        name: String,
+        code: String,
+        cursor: Option<usize>,
+        detail_level: u8,
+    },
+    KernelInfo {
+        name: String,
+    },
+    IsComplete {
+        name: String,
+        code: String,
+    },
+    Interrupt {
+        name: String,
+    },
+    Heartbeat {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -57,9 +96,12 @@ pub enum KernelOperation {
 pub enum KernelResponse {
     Created { name: String, pid: u32 },
     Listed { kernels: Vec<KernelStatus> },
+    Attached { name: String },
     Connected { connection: Value },
     Deleted { name: String },
     Executed { response: ReplResponse },
+    JupyterReply { message: JupyterMessage },
+    Heartbeat { alive: bool },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -143,12 +185,20 @@ fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
     let manager =
         KernelManager::from_options(request.kernel_dir, request.python, request.kernel_script)?;
     match request.operation {
-        KernelOperation::Create { name } => manager
-            .create(&name)
-            .map(|pid| KernelResponse::Created { name, pid }),
+        KernelOperation::Create { name, kernelspec } => match kernelspec {
+            Some(kernelspec) => manager.create_from_kernelspec(&name, &kernelspec),
+            None => manager.create(&name),
+        }
+        .map(|pid| KernelResponse::Created { name, pid }),
         KernelOperation::List => manager
             .list()
             .map(|kernels| KernelResponse::Listed { kernels }),
+        KernelOperation::Attach {
+            name,
+            connection_file,
+        } => manager
+            .attach(&name, &connection_file)
+            .map(|_| KernelResponse::Attached { name }),
         KernelOperation::Connect { name } => manager
             .connection(&name)
             .map(|connection| KernelResponse::Connected { connection }),
@@ -158,6 +208,29 @@ fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
         KernelOperation::Exec { name, code } => manager
             .execute(&name, &code)
             .map(|response| KernelResponse::Executed { response }),
+        KernelOperation::Complete { name, code, cursor } => manager
+            .complete(&name, &code, cursor)
+            .map(|message| KernelResponse::JupyterReply { message }),
+        KernelOperation::Inspect {
+            name,
+            code,
+            cursor,
+            detail_level,
+        } => manager
+            .inspect(&name, &code, cursor, detail_level)
+            .map(|message| KernelResponse::JupyterReply { message }),
+        KernelOperation::KernelInfo { name } => manager
+            .kernel_info(&name)
+            .map(|message| KernelResponse::JupyterReply { message }),
+        KernelOperation::IsComplete { name, code } => manager
+            .is_complete(&name, &code)
+            .map(|message| KernelResponse::JupyterReply { message }),
+        KernelOperation::Interrupt { name } => manager
+            .interrupt(&name)
+            .map(|message| KernelResponse::JupyterReply { message }),
+        KernelOperation::Heartbeat { name } => manager
+            .heartbeat(&name)
+            .map(|alive| KernelResponse::Heartbeat { alive }),
     }
 }
 

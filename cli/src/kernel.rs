@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::jupyter;
+use crate::jupyter::{self, JupyterClient, JupyterMessage};
+use crate::kernelspec;
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
@@ -47,6 +48,8 @@ pub struct ReplResponse {
     pub stderr: String,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default)]
+    pub outputs: Vec<JupyterMessage>,
 }
 
 impl KernelManager {
@@ -128,6 +131,91 @@ impl KernelManager {
         Err(format!("kernel '{name}' failed to start within 5 seconds"))
     }
 
+    pub fn create_from_kernelspec(&self, name: &str, kernelspec_name: &str) -> Result<u32, String> {
+        validate_name(name)?;
+        fs::create_dir_all(&self.directory)
+            .map_err(|error| format!("cannot create {}: {error}", self.directory.display()))?;
+        let connection_path = self.connection_path(name);
+        let pid_path = self.pid_path(name);
+        if connection_path.exists() {
+            if let Some(pid) = read_pid(&pid_path)? {
+                if process_is_alive(pid) {
+                    return Err(format!("kernel '{name}' is already running (pid {pid})"));
+                }
+            }
+            self.remove_artifacts(name);
+        }
+
+        let spec = kernelspec::load(kernelspec_name)?;
+        let prepared = kernelspec::prepare(&spec, &connection_path)?;
+        let connection = kernelspec::write_connection_file(&connection_path)?;
+        let mut child = match Command::new(&prepared.program)
+            .args(&prepared.arguments)
+            .envs(&prepared.environment)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(error) => {
+                self.remove_artifacts(name);
+                return Err(format!(
+                    "failed to launch kernelspec '{kernelspec_name}': {error}"
+                ));
+            }
+        };
+        let pid = child.id();
+        if let Err(error) = fs::write(&pid_path, pid.to_string()) {
+            let _ = child.kill();
+            let _ = child.wait();
+            self.remove_artifacts(name);
+            return Err(format!("cannot write {}: {error}", pid_path.display()));
+        }
+
+        let deadline = Instant::now() + STARTUP_TIMEOUT;
+        while Instant::now() < deadline {
+            if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+                self.remove_artifacts(name);
+                return Err(format!(
+                    "kernel '{name}' exited during startup with {status}"
+                ));
+            }
+            if JupyterClient::from_value(&connection)
+                .and_then(|client| client.heartbeat(Duration::from_millis(100)))
+                .unwrap_or(false)
+            {
+                return Ok(pid);
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+        self.remove_artifacts(name);
+        Err(format!("kernel '{name}' failed to start within 5 seconds"))
+    }
+
+    pub fn attach(&self, name: &str, connection_file: &Path) -> Result<(), String> {
+        validate_name(name)?;
+        fs::create_dir_all(&self.directory)
+            .map_err(|error| format!("cannot create {}: {error}", self.directory.display()))?;
+        let connection_path = self.connection_path(name);
+        if connection_path.exists() {
+            return Err(format!("kernel '{name}' already exists"));
+        }
+        let contents = fs::read_to_string(connection_file).map_err(|error| {
+            format!(
+                "cannot read connection file {}: {error}",
+                connection_file.display()
+            )
+        })?;
+        let connection: Value = serde_json::from_str(&contents)
+            .map_err(|error| format!("invalid Jupyter connection file: {error}"))?;
+        JupyterClient::from_value(&connection)?;
+        fs::write(&connection_path, contents)
+            .map_err(|error| format!("cannot write {}: {error}", connection_path.display()))
+    }
+
     pub fn list(&self) -> Result<Vec<KernelStatus>, String> {
         if !self.directory.exists() {
             return Ok(Vec::new());
@@ -171,11 +259,51 @@ impl KernelManager {
 
     pub fn execute(&self, name: &str, code: &str) -> Result<ReplResponse, String> {
         let connection = self.connection(name)?;
-        let socket_path = connection
-            .get("socket_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("kernel '{name}' connection has no socket_path"))?;
-        execute_socket(Path::new(socket_path), code)
+        if let Some(socket_path) = connection.get("socket_path").and_then(Value::as_str) {
+            return execute_socket(Path::new(socket_path), code);
+        }
+        execute_jupyter(&connection, code)
+    }
+
+    pub fn complete(
+        &self,
+        name: &str,
+        code: &str,
+        cursor: Option<usize>,
+    ) -> Result<JupyterMessage, String> {
+        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.complete(code, cursor, EXECUTION_TIMEOUT)
+    }
+
+    pub fn inspect(
+        &self,
+        name: &str,
+        code: &str,
+        cursor: Option<usize>,
+        detail_level: u8,
+    ) -> Result<JupyterMessage, String> {
+        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.inspect(code, cursor, detail_level, EXECUTION_TIMEOUT)
+    }
+
+    pub fn kernel_info(&self, name: &str) -> Result<JupyterMessage, String> {
+        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.kernel_info(EXECUTION_TIMEOUT)
+    }
+
+    pub fn is_complete(&self, name: &str, code: &str) -> Result<JupyterMessage, String> {
+        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.is_complete(code, EXECUTION_TIMEOUT)
+    }
+
+    pub fn interrupt(&self, name: &str) -> Result<JupyterMessage, String> {
+        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.interrupt(EXECUTION_TIMEOUT)
+    }
+
+    pub fn heartbeat(&self, name: &str) -> Result<bool, String> {
+        let client = JupyterClient::from_value(&self.connection(name)?)?;
+        client.heartbeat(Duration::from_secs(2))
     }
 
     pub fn delete(&self, name: &str) -> Result<(), String> {
@@ -294,6 +422,83 @@ fn send_signal(pid: u32, signal: libc::c_int) -> Result<(), String> {
             std::io::Error::last_os_error()
         ))
     }
+}
+
+fn execute_jupyter(connection: &Value, code: &str) -> Result<ReplResponse, String> {
+    let mut client = JupyterClient::from_value(connection)?;
+    let execution = client.execute(code, EXECUTION_TIMEOUT)?;
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    let mut result = None;
+    let mut error = None;
+    for output in &execution.outputs {
+        match output.message_type() {
+            Some("stream") => {
+                let text = output
+                    .content
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                match output.content.get("name").and_then(Value::as_str) {
+                    Some("stderr") => stderr.push_str(text),
+                    _ => stdout.push_str(text),
+                }
+            }
+            Some("execute_result") => {
+                result = output
+                    .content
+                    .get("data")
+                    .and_then(|data| data.get("text/plain"))
+                    .cloned();
+            }
+            Some("error") => {
+                let name = output
+                    .content
+                    .get("ename")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Error");
+                let value = output
+                    .content
+                    .get("evalue")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                error = Some(format!("{name}: {value}"));
+            }
+            _ => {}
+        }
+    }
+    if error.is_none()
+        && execution
+            .reply
+            .content
+            .get("status")
+            .and_then(Value::as_str)
+            == Some("error")
+    {
+        let name = execution
+            .reply
+            .content
+            .get("ename")
+            .and_then(Value::as_str)
+            .unwrap_or("Error");
+        let value = execution
+            .reply
+            .content
+            .get("evalue")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        error = Some(format!("{name}: {value}"));
+    }
+    Ok(ReplResponse {
+        ok: error.is_none(),
+        mode: Some(if result.is_some() { "eval" } else { "exec" }.to_owned()),
+        code: Some(code.to_owned()),
+        result,
+        stdout,
+        stderr,
+        error,
+        outputs: execution.outputs,
+    })
 }
 
 fn execute_socket(socket_path: &Path, code: &str) -> Result<ReplResponse, String> {

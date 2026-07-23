@@ -130,7 +130,17 @@ class Kernel:
         self._lock = threading.RLock()  # reentrant: socket handler calls do_execute
 
         # Wire secrets
-        self.key: bytes = os.urandom(32)
+        supplied_connection = self._read_connection_file()
+        supplied_key = supplied_connection.get("key", "") if supplied_connection else ""
+        if isinstance(supplied_key, str):
+            try:
+                self.key = bytes.fromhex(supplied_key)
+            except ValueError:
+                self.key = supplied_key.encode()
+        else:
+            self.key = supplied_key or os.urandom(32)
+        if not self.key:
+            self.key = os.urandom(32)
         self.session_id: str = uuid.uuid4().hex
 
         # ZMQ
@@ -140,11 +150,20 @@ class Kernel:
         self.control_socket: zmq.Socket = context.socket(zmq.ROUTER)
         self.heartbeat_socket: zmq.Socket = context.socket(zmq.REP)
 
-        # Bind
-        self.shell_socket.bind_to_random_port("tcp://127.0.0.1")
-        self.iopub_socket.bind_to_random_port("tcp://127.0.0.1")
-        self.control_socket.bind_to_random_port("tcp://127.0.0.1")
-        self.heartbeat_socket.bind_to_random_port("tcp://127.0.0.1")
+        # Bind to caller-supplied Jupyter ports when present; otherwise allocate them.
+        if supplied_connection:
+            if supplied_connection.get("transport", "tcp") != "tcp":
+                raise ValueError("minimal kernel supports only tcp transport")
+            ip = supplied_connection.get("ip", "127.0.0.1")
+            self.shell_socket.bind(f"tcp://{ip}:{supplied_connection['shell_port']}")
+            self.iopub_socket.bind(f"tcp://{ip}:{supplied_connection['iopub_port']}")
+            self.control_socket.bind(f"tcp://{ip}:{supplied_connection['control_port']}")
+            self.heartbeat_socket.bind(f"tcp://{ip}:{supplied_connection['hb_port']}")
+        else:
+            self.shell_socket.bind_to_random_port("tcp://127.0.0.1")
+            self.iopub_socket.bind_to_random_port("tcp://127.0.0.1")
+            self.control_socket.bind_to_random_port("tcp://127.0.0.1")
+            self.heartbeat_socket.bind_to_random_port("tcp://127.0.0.1")
 
         # Persist connection info (includes socket path)
         self._write_connection_file()
@@ -154,6 +173,15 @@ class Kernel:
         threading.Thread(target=self._socket_loop, daemon=True).start()
 
     # -- connection file ---------------------------------------------------
+
+    def _read_connection_file(self) -> dict[str, Any] | None:
+        try:
+            with open(self.connection_file) as connection_file:
+                connection = json.load(connection_file)
+        except (OSError, json.JSONDecodeError):
+            return None
+        required_ports = ("shell_port", "iopub_port", "control_port", "hb_port")
+        return connection if all(connection.get(port) for port in required_ports) else None
 
     def _write_connection_file(self):
         # Socket path for direct extension access (no subprocess)
@@ -301,6 +329,79 @@ class Kernel:
             identity,
         )
 
+    def handle_complete_request(self, msg: dict, identity: bytes):
+        import re
+        import rlcompleter
+
+        code = msg["content"].get("code", "")
+        cursor_pos = msg["content"].get("cursor_pos", len(code))
+        before_cursor = code[:cursor_pos]
+        match = re.search(r"[A-Za-z_][A-Za-z0-9_.]*$", before_cursor)
+        token = match.group(0) if match else ""
+        completer = rlcompleter.Completer(self.namespace)
+        matches: list[str] = []
+        index = 0
+        while True:
+            completion = completer.complete(token, index)
+            if completion is None:
+                break
+            if completion not in matches:
+                matches.append(completion)
+            index += 1
+        self.reply(
+            "complete_reply",
+            {
+                "status": "ok",
+                "matches": matches,
+                "cursor_start": cursor_pos - len(token),
+                "cursor_end": cursor_pos,
+                "metadata": {},
+            },
+            msg,
+            identity,
+        )
+
+    def handle_inspect_request(self, msg: dict, identity: bytes):
+        import inspect
+        import re
+
+        code = msg["content"].get("code", "")
+        cursor_pos = msg["content"].get("cursor_pos", len(code))
+        match = re.search(r"[A-Za-z_][A-Za-z0-9_.]*$", code[:cursor_pos])
+        token = match.group(0) if match else ""
+        found = False
+        data: dict[str, str] = {}
+        if token:
+            try:
+                value = eval(token, self.namespace)
+                documentation = inspect.getdoc(value) or repr(value)
+                data = {"text/plain": documentation}
+                found = True
+            except Exception:
+                pass
+        self.reply(
+            "inspect_reply",
+            {"status": "ok", "found": found, "data": data, "metadata": {}},
+            msg,
+            identity,
+        )
+
+    def handle_is_complete_request(self, msg: dict, identity: bytes):
+        import codeop
+
+        code = msg["content"].get("code", "")
+        try:
+            compiled = codeop.compile_command(code, symbol="exec")
+            content = {"status": "complete" if compiled is not None else "incomplete"}
+            if compiled is None:
+                content["indent"] = "    "
+        except (SyntaxError, OverflowError, ValueError):
+            content = {"status": "invalid"}
+        self.reply("is_complete_reply", content, msg, identity)
+
+    def handle_interrupt_request(self, msg: dict, identity: bytes):
+        self.reply("interrupt_reply", {"status": "ok"}, msg, identity)
+
     def handle_shutdown_request(self, msg: dict, identity: bytes):
         restart = msg["content"].get("restart", False)
         self.reply("shutdown_reply", {"restart": restart, "status": "ok"}, msg, identity)
@@ -417,6 +518,10 @@ class Kernel:
         shell_handlers = {
             "execute_request": self.handle_execute_request,
             "kernel_info_request": self.handle_kernel_info_request,
+            "complete_request": self.handle_complete_request,
+            "inspect_request": self.handle_inspect_request,
+            "is_complete_request": self.handle_is_complete_request,
+            "interrupt_request": self.handle_interrupt_request,
             "shutdown_request": self.handle_shutdown_request,
         }
 

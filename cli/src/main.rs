@@ -84,11 +84,53 @@ enum Command {
 
 #[derive(Debug, Subcommand)]
 enum KernelCommand {
-    Create { name: String },
+    Create {
+        name: String,
+        #[arg(long)]
+        kernelspec: Option<String>,
+    },
     List,
-    Connect { name: String },
-    Delete { name: String },
-    Exec { name: String, code: String },
+    Attach {
+        name: String,
+        connection_file: PathBuf,
+    },
+    Connect {
+        name: String,
+    },
+    Delete {
+        name: String,
+    },
+    Exec {
+        name: String,
+        code: String,
+    },
+    Complete {
+        name: String,
+        code: String,
+        #[arg(long)]
+        cursor: Option<usize>,
+    },
+    Inspect {
+        name: String,
+        code: String,
+        #[arg(long)]
+        cursor: Option<usize>,
+        #[arg(long, default_value_t = 0)]
+        detail_level: u8,
+    },
+    Info {
+        name: String,
+    },
+    IsComplete {
+        name: String,
+        code: String,
+    },
+    Interrupt {
+        name: String,
+    },
+    Heartbeat {
+        name: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -191,7 +233,10 @@ fn run() -> Result<(), Box<dyn Error>> {
             serve(&cli.broker_socket.unwrap_or_else(default_socket_path)).map_err(Into::into)
         }
         Command::Create { name } => run_kernel(
-            KernelCommand::Create { name },
+            KernelCommand::Create {
+                name,
+                kernelspec: None,
+            },
             cli.json,
             cli.kernel_dir,
             cli.python,
@@ -248,11 +293,36 @@ fn run_kernel(
     broker_socket: PathBuf,
 ) -> Result<(), Box<dyn Error>> {
     let operation = match command {
-        KernelCommand::Create { name } => KernelOperation::Create { name },
+        KernelCommand::Create { name, kernelspec } => KernelOperation::Create { name, kernelspec },
         KernelCommand::List => KernelOperation::List,
+        KernelCommand::Attach {
+            name,
+            connection_file,
+        } => KernelOperation::Attach {
+            name,
+            connection_file,
+        },
         KernelCommand::Connect { name } => KernelOperation::Connect { name },
         KernelCommand::Delete { name } => KernelOperation::Delete { name },
         KernelCommand::Exec { name, code } => KernelOperation::Exec { name, code },
+        KernelCommand::Complete { name, code, cursor } => {
+            KernelOperation::Complete { name, code, cursor }
+        }
+        KernelCommand::Inspect {
+            name,
+            code,
+            cursor,
+            detail_level,
+        } => KernelOperation::Inspect {
+            name,
+            code,
+            cursor,
+            detail_level,
+        },
+        KernelCommand::Info { name } => KernelOperation::KernelInfo { name },
+        KernelCommand::IsComplete { name, code } => KernelOperation::IsComplete { name, code },
+        KernelCommand::Interrupt { name } => KernelOperation::Interrupt { name },
+        KernelCommand::Heartbeat { name } => KernelOperation::Heartbeat { name },
     };
     let response = dispatch(
         KernelRequest {
@@ -287,6 +357,13 @@ fn run_kernel(
                 }
             }
         }
+        KernelResponse::Attached { name } => {
+            if json_output {
+                print_json(&json!({"name": name, "attached": true}))?;
+            } else {
+                println!("Kernel '{name}' attached.");
+            }
+        }
         KernelResponse::Connected { connection } => print_json(&connection)?,
         KernelResponse::Deleted { name } => {
             if json_output {
@@ -300,6 +377,23 @@ fn run_kernel(
                 print_json(&response)?;
             } else {
                 print_repl_response(&response)?;
+            }
+        }
+        KernelResponse::JupyterReply { message } => {
+            if json_output {
+                print_json(&message)?;
+            } else {
+                print_json(&message.content)?;
+            }
+        }
+        KernelResponse::Heartbeat { alive } => {
+            if json_output {
+                print_json(&json!({"alive": alive}))?;
+            } else {
+                println!("{}", if alive { "alive" } else { "unresponsive" });
+            }
+            if !alive {
+                return Err("kernel heartbeat is unresponsive".into());
             }
         }
     }
