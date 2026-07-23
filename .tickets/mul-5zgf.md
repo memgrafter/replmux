@@ -1,7 +1,7 @@
 ---
 id: mul-5zgf
 status: open
-deps: [mul-r5oy, mul-jcif, mul-yxmc, mul-hfdn, mul-c2z5]
+deps: [mul-r5oy, mul-jcif, mul-yxmc, mul-hfdn, mul-c2z5, mul-a809]
 links: []
 created: 2026-07-23T03:37:52Z
 type: epic
@@ -27,6 +27,7 @@ The epic remains open because the durable broker-managed runtime design below is
 - `mul-yxmc` — unified Jupyter execution protocol
 - `mul-hfdn` — runtime branches and snapshots
 - `mul-c2z5` — runtime events and diagnostics
+- `mul-a809` — arbitrary Jupyter kernel launch and attachment
 
 The ideal `cli/` REPL manager should manage **durable runtimes through the broker**, not directly treat kernel PIDs as the primary object.
 
@@ -112,6 +113,28 @@ multirepl doctor
 - Stale connection/PID files
 - Environment availability
 - Snapshot compatibility
+
+## General Jupyter kernel parity
+
+The finished runtime must not require Multirepl's custom Python execution socket. It must support launching and attaching to ordinary Jupyter kernels through their standard connection documents.
+
+Required protocol coverage belongs to `mul-yxmc`:
+
+- `execute_request/reply` with correlated IOPub collection
+- `stream`, `error`, `execute_result`, `display_data`, `update_display_data`, and `clear_output`
+- Rich MIME bundle preservation
+- Completion, inspection, kernel information, and completeness requests
+- Interrupt, stdin replies, shutdown/restart, and heartbeat
+- HMAC validation, supported transports/signature schemes, unrelated-message filtering, malformed-message handling, cancellation, and bounded timeouts
+
+Required launch and compatibility coverage belongs to `mul-a809`:
+
+- Kernelspec discovery and `argv`/environment expansion
+- Conventional caller-created connection files and `{connection_file}` substitution
+- Launching arbitrary kernels instead of hardcoding `minimal_kernel_clean.py`
+- Attaching to externally managed kernels
+- Removing `socket_path` as a requirement; retain it only as an optional local optimization
+- Compatibility tests for the minimal kernel, `ipykernel`, Sage, and at least one non-Python kernel such as Julia or R
 
 ## Immediate parity milestone
 
