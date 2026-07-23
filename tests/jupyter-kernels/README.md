@@ -17,7 +17,9 @@ protocol can be a kernel. Use these catalogs to find candidates:
 Treat the community list as a discovery catalog, not a compatibility guarantee.
 Before adding a kernel, verify that its upstream project is maintained, has
 installation instructions, and implements the protocol operations exercised by
-this project.
+this project. See the [agent-oriented kernel catalog](../../docs/AGENT_KERNEL_CATALOG.md)
+for the selection policy, licensed-runtime constraints, and recommended next
+compatibility wave.
 
 Discover installed kernel names with:
 

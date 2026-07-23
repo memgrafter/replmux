@@ -37,7 +37,7 @@ replmux kernel create algebra --kernelspec /path/to/sage/kernel.json
 replmux kernel attach existing /path/to/kernel-connection.json
 ```
 
-Kernelspec discovery follows `JUPYTER_PATH`, macOS and user data directories, then system Jupyter data directories. Standard kernels execute through their signed Jupyter ZMQ channels; Replmux's custom worker retains its direct Unix socket as a local optimization.
+Kernelspec discovery follows `JUPYTER_PATH`, macOS and user data directories, then system Jupyter data directories. Standard kernels execute through their signed Jupyter ZMQ channels; Replmux's custom worker retains its direct Unix socket as a local optimization. The [Jupyter community list](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels) is the broad discovery catalog; see [`docs/AGENT_KERNEL_CATALOG.md`](../docs/AGENT_KERNEL_CATALOG.md) for agent-oriented recommendations and licensing and isolation constraints.
 
 For compatibility with `jupyter_repl_cli.py`, lifecycle commands are also accepted at the top level:
 

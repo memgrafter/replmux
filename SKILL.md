@@ -1,6 +1,6 @@
 ---
 name: replmux
-description: Keep Python variables, imports, and results alive across turns, or share one live Python workspace between agents. Use for repeated calculations and collaborative analysis without rebuilding state or launching Python for every call.
+description: Keep computational state alive across turns or share one live Jupyter workspace between agents. Use Python by default, or launch language and domain kernels for repeated calculations and collaborative analysis.
 ---
 
 Use Replmux as durable working memory for Python computation: create a named workspace once, then return to it from later turns or other agents.
@@ -111,6 +111,27 @@ The namespace is shared mutable state. Coordinate writes and use separate kernel
 - Exception: `✗ <exception>`
 
 A workspace remains available until its kernel exits or is deleted. If a kernel dies, its in-memory Python state is lost.
+
+## Choosing a standard kernel
+
+Replmux can manage any compatible Jupyter kernelspec, not only Python. The
+canonical discovery inventory is the [Jupyter community kernel
+list](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels); it is a catalog,
+not a support guarantee.
+
+For agent work, prioritize maintained kernels with persistent state,
+deterministic text output, standard interrupt and inspection behavior,
+noninteractive installation, and automation-compatible licensing. Recommended
+capability additions are SageMath for broad computer algebra, LFortran for
+modern Fortran, Maxima and GAP for specialized algebra, Octave for free
+MATLAB-like computing, xeus-sqlite for local data work, and EvCxR for Rust.
+Wolfram/Mathematica and MATLAB kernels require user-managed runtimes and valid
+licenses. Hardware, Docker, database, and remote-service kernels require
+explicit credentials and isolation; Replmux is not a sandbox.
+
+See [docs/AGENT_KERNEL_CATALOG.md](docs/AGENT_KERNEL_CATALOG.md) for the curated
+recommendations and [`tests/jupyter-kernels/kernels.toml`](tests/jupyter-kernels/kernels.toml)
+for the machine-tested compatibility matrix.
 
 ## Standalone CLI
 
