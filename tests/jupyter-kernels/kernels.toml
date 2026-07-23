@@ -101,3 +101,15 @@ project_url = "https://www.sagemath.org/"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["sage"]
+
+[[kernels]]
+id = "fortran-lfortran"
+display_name = "Fortran (LFortran)"
+language = "fortran"
+kernelspec = "fortran"
+tier = "optional"
+project_url = "https://lfortran.org/"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["lfortran"]
