@@ -28,6 +28,7 @@ const replManageSchema = Type.Object({
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
 const DEFAULT_BINARY = process.env.MULTIREPL_BINARY ?? "~/code/multirepl/cli/target/release/multirepl";
+const DEFAULT_BROKER_SOCKET = process.env.MULTIREPL_BROKER_SOCKET ?? "~/.multirepl/b.sock";
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
@@ -69,34 +70,64 @@ function getSocketPath(kernelName: string): string | null {
 	}
 }
 
-function sendToKernel(socketPath: string, code: string): Promise<Record<string, any>> {
+class BrokerUnavailableError extends Error {}
+
+function sendJson(socketPath: string, payload: unknown): Promise<Record<string, any>> {
 	return new Promise((resolve, reject) => {
 		const sock = new net.Socket();
+		const chunks: Buffer[] = [];
 		const timeout = setTimeout(() => {
 			sock.destroy();
-			reject(new Error("REPL socket connection timed out"));
+			reject(new Error(`Unix socket request timed out: ${socketPath}`));
 		}, 30_000);
 
-		sock.on("error", (err) => {
+		const finish = (callback: () => void) => {
 			clearTimeout(timeout);
-			reject(err);
-		});
-
-		sock.on("data", (chunk) => {
+			callback();
+		};
+		sock.on("error", (error) => finish(() => reject(error)));
+		sock.on("data", (chunk: Buffer) => chunks.push(chunk));
+		sock.on("end", () => finish(() => {
+			const body = Buffer.concat(chunks).toString();
 			try {
-				resolve(JSON.parse(chunk.toString()));
+				resolve(JSON.parse(body));
 			} catch {
-				reject(new Error("Invalid JSON from kernel: " + chunk.toString().slice(0, 200)));
+				reject(new Error(`Invalid JSON from ${socketPath}: ${body.slice(0, 200)}`));
 			}
-			clearTimeout(timeout);
-			sock.destroy();
-		});
-
+		}));
 		sock.connect(socketPath, () => {
-			sock.write(JSON.stringify({ code }));
-			sock.end();
+			sock.end(JSON.stringify(payload));
 		});
 	});
+}
+
+function sendToKernel(socketPath: string, code: string): Promise<Record<string, any>> {
+	return sendJson(socketPath, { code });
+}
+
+async function sendToBroker(kernelName: string, code: string): Promise<Record<string, any>> {
+	const socketPath = resolvePath(DEFAULT_BROKER_SOCKET);
+	let wireResponse: Record<string, any>;
+	try {
+		wireResponse = await sendJson(socketPath, {
+			operation: { action: "exec", name: kernelName, code },
+			kernel_dir: null,
+			python: null,
+			kernel_script: null,
+		});
+	} catch (error: any) {
+		if (error?.code === "ENOENT" || error?.code === "ECONNREFUSED") {
+			throw new BrokerUnavailableError();
+		}
+		throw error;
+	}
+	if (!wireResponse.ok) {
+		throw new Error(wireResponse.error || "Multirepl broker request failed");
+	}
+	if (wireResponse.response?.type !== "executed" || !wireResponse.response.response) {
+		throw new Error("Multirepl broker returned an invalid execution response");
+	}
+	return wireResponse.response.response;
 }
 
 
@@ -129,13 +160,21 @@ const replTool: ToolDefinition = {
 		_ctx: ExtensionContext,
 	): Promise<AgentToolResult<Record<string, any>>> {
 		const target = params.name;
-		const socketPath = getSocketPath(target);
-		if (!socketPath) {
-			return { content: [{ type: "text", text: `Cannot find socket for kernel '${target}'. Kernel may be dead.` }], isError: true };
-		}
 		try {
 			_onUpdate?.({ content: [{ type: "text", text: `repl: ${target}` }] });
-			const result = await sendToKernel(socketPath, params.code);
+			let transport = "broker";
+			let result: Record<string, any>;
+			try {
+				result = await sendToBroker(target, params.code);
+			} catch (error) {
+				if (!(error instanceof BrokerUnavailableError)) throw error;
+				transport = "kernel";
+				const socketPath = getSocketPath(target);
+				if (!socketPath) {
+					throw new Error(`Cannot find socket for kernel '${target}'. Kernel may be dead.`);
+				}
+				result = await sendToKernel(socketPath, params.code);
+			}
 			let resultText = "";
 			if (!result.ok) {
 				resultText = `  ✗ ${result.error}`;
@@ -146,7 +185,7 @@ const replTool: ToolDefinition = {
 			if (result.stderr) resultText += `\n  stderr: ${result.stderr.trim()}`;
 			return {
 				content: [{ type: "text", text: resultText || "(ok)" }],
-				details: result,
+				details: { ...result, transport },
 			};
 		} catch (err: any) {
 			return { content: [{ type: "text", text: err.message }], details: undefined, isError: true };
