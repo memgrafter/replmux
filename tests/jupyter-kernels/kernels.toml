@@ -89,3 +89,15 @@ setup = [
   ],
   ["{prefix}/dotnet-tools/dotnet-interactive", "jupyter", "install", "--path", "{prefix}/share/jupyter/kernels"],
 ]
+
+[[kernels]]
+id = "sage"
+display_name = "SageMath"
+language = "sage"
+kernelspec = "sagemath"
+tier = "optional"
+project_url = "https://www.sagemath.org/"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["sage"]
