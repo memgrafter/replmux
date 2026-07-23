@@ -1,12 +1,12 @@
 [package]
-name = "multirepl-runtime-cli"
+name = "replmux-runtime-cli"
 version = "0.1.0"
 edition = "2024"
-description = "HTTP CLI for the Multirepl Runtime API"
+description = "HTTP CLI for the Replmux Runtime API"
 license = "MIT"
 
 [[bin]]
-name = "multirepl"
+name = "replmux"
 path = "src/main.rs"
 
 [dependencies]

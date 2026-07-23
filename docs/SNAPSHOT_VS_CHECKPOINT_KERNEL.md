@@ -1,4 +1,4 @@
-After inspecting `~/code/multirepl`, I’d treat **replay as the canonical history** and snapshots as acceleration artifacts.
+After inspecting `~/code/replmux`, I’d treat **replay as the canonical history** and snapshots as acceleration artifacts.
 
 ## Important architectural observation
 
@@ -365,7 +365,7 @@ Communication can be a framed Unix socket or pipe:
 {"op":"restore","snapshot":"..."}
 ```
 
-Do not embed snapshot operations into standard Jupyter semantics. Keep them as multirepl lifecycle extensions while retaining Jupyter compatibility.
+Do not embed snapshot operations into standard Jupyter semantics. Keep them as replmux lifecycle extensions while retaining Jupyter compatibility.
 
 ---
 
@@ -396,4 +396,4 @@ This lets logical, fork, CRIU and VM snapshots coexist.
 
 **The event log is the durable truth; snapshots are disposable caches.**
 
-That gives multirepl fast restoration and branching without making correctness depend on successfully serializing every possible Python object.
+That gives replmux fast restoration and branching without making correctness depend on successfully serializing every possible Python object.

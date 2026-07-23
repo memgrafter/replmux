@@ -318,7 +318,7 @@ impl JupyterClient {
             header: json!({
                 "msg_id": message_id,
                 "msg_type": message_type,
-                "username": "multirepl",
+                "username": "replmux",
                 "session": self.session_id.clone(),
                 "date": utc_timestamp(),
                 "version": PROTOCOL_VERSION,

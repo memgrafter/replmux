@@ -3,7 +3,7 @@ use std::net::TcpListener;
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 
-use multirepl_runtime_cli::{ApiClient, ApiError, RuntimeCreate};
+use replmux_runtime_cli::{ApiClient, ApiError, RuntimeCreate};
 
 const RUNTIME_JSON: &str = r#"{
   "id":"rt_123",

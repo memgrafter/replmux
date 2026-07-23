@@ -1,12 +1,12 @@
 # Runtime API and Rust CLI Handoff
 
 **Date:** 2026-07-22 PDT
-**Repository:** Multirepl repository root
+**Repository:** Replmux repository root
 **Audience:** Next implementation agent
 
 ## Summary
 
-This work adds the first durable Multirepl control-plane object: runtime metadata. It consists of:
+This work adds the first durable Replmux control-plane object: runtime metadata. It consists of:
 
 1. A standalone FastAPI runtime CRUD service with SQLite persistence.
 2. A Rust CLI that consumes the service's OpenAPI-described HTTP object interface.
@@ -81,13 +81,13 @@ A PATCH increments `revision` when at least one non-null field changes. DELETE c
 The service uses Python's standard `sqlite3` module. The default database is:
 
 ```text
-~/.jupyter-repl/multirepl.db
+~/.jupyter-repl/replmux.db
 ```
 
 Override it with:
 
 ```bash
-MULTIREPL_DB_PATH=/path/to/runtime.db
+REPLMUX_DB_PATH=/path/to/runtime.db
 ```
 
 SQLite WAL and a five-second busy timeout are enabled.
@@ -97,7 +97,7 @@ SQLite WAL and a five-second busy timeout are enabled.
 ```bash
 cd service
 uv sync --dev
-uv run uvicorn multirepl_service.app:app --reload
+uv run uvicorn replmux_service.app:app --reload
 ```
 
 ### Tests
@@ -118,9 +118,9 @@ There is one upstream `StarletteDeprecationWarning` concerning FastAPI's `TestCl
 ### Important files
 
 ```text
-service/multirepl_service/app.py       FastAPI routes and application factory
-service/multirepl_service/models.py    Pydantic/OpenAPI models
-service/multirepl_service/store.py     SQLite repository
+service/replmux_service/app.py       FastAPI routes and application factory
+service/replmux_service/models.py    Pydantic/OpenAPI models
+service/replmux_service/store.py     SQLite repository
 service/tests/test_runtime_api.py      HTTP integration tests
 service/README.md                      Usage and curl examples
 service/pyproject.toml                 Python dependencies
@@ -134,17 +134,17 @@ Location: `cli/`
 Binary name:
 
 ```text
-multirepl
+replmux
 ```
 
 ### Commands
 
 ```bash
-multirepl runtime create analysis
-multirepl runtime list
-multirepl runtime get rt_ID
-multirepl runtime update rt_ID --status running
-multirepl runtime delete rt_ID
+replmux runtime create analysis
+replmux runtime list
+replmux runtime get rt_ID
+replmux runtime update rt_ID --status running
+replmux runtime delete rt_ID
 ```
 
 Global options:
@@ -163,7 +163,7 @@ http://127.0.0.1:8000
 It can also be configured with:
 
 ```bash
-MULTIREPL_API_URL=http://host:8000
+REPLMUX_API_URL=http://host:8000
 ```
 
 Create and update commands support environment and snapshot-policy fields. For partial nested updates, the CLI first fetches the current runtime and merges the changed nested fields before PATCHing the complete nested object.

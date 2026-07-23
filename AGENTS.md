@@ -1,4 +1,4 @@
-## multirepl — Multiplayer Python for Agents
+## replmux — Multiplayer Python for Agents
 
 ### What it is
 

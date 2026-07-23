@@ -42,7 +42,7 @@ Modern notebook cells have stable `id` fields. Add custom metadata without break
   "cell_type": "code",
   "id": "existing-notebook-cell-id",
   "metadata": {
-    "multirepl": {
+    "replmux": {
       "event_id": "evt-123",
       "sequence": 42,
       "agent_id": "agent-7",
@@ -78,7 +78,7 @@ Arbitrary metadata can travel in Jupyter message metadata:
 
 ```json
 {
-  "multirepl": {
+  "replmux": {
     "agent_id": "agent-7",
     "event_id": "evt-123",
     "source": "agent"
@@ -103,7 +103,7 @@ Protocol equivalent:
 {
   "data": {
     "text/plain": "Agent is analyzing…",
-    "application/vnd.multirepl.agent+json": {
+    "application/vnd.replmux.agent+json": {
       "status": "running",
       "agent": "agent-7"
     }
@@ -114,7 +114,7 @@ Protocol equivalent:
 }
 ```
 
-Unknown MIME types remain in notebooks; ordinary clients show the `text/plain` fallback, while a Multirepl JupyterLab extension can render the structured form.
+Unknown MIME types remain in notebooks; ordinary clients show the `text/plain` fallback, while a Replmux JupyterLab extension can render the structured form.
 
 ## 4. Jupyter comms for interactive agents
 
@@ -130,7 +130,7 @@ A JupyterLab agent panel could open:
 
 ```json
 {
-  "target_name": "multirepl.agent",
+  "target_name": "replmux.agent",
   "data": {
     "kernel": "analysis-kernel",
     "agent": "agent-7"
@@ -178,17 +178,17 @@ Support the conventional Jupyter kernel launch interface:
 ```json
 {
   "argv": [
-    "/path/to/multirepl",
+    "/path/to/replmux",
     "kernel",
     "--connection-file",
     "{connection_file}"
   ],
-  "display_name": "Multirepl Python",
+  "display_name": "Replmux Python",
   "language": "python"
 }
 ```
 
-Jupyter normally creates the connection file and passes it to the kernel. Your current CLI does the reverse. Supporting both modes would let JupyterLab launch Multirepl normally.
+Jupyter normally creates the connection file and passes it to the kernel. Your current CLI does the reverse. Supporting both modes would let JupyterLab launch Replmux normally.
 
 For arbitrary Python/Sage environments, the kernelspec can point to the appropriate worker interpreter or include environment metadata.
 
@@ -200,7 +200,7 @@ If kernels are remote or broker-managed, investigate:
 - Jupyter Enterprise Gateway
 - Jupyter Server kernel/session APIs
 
-A Multirepl provisioner could let Jupyter Server ask the Rust broker to:
+A Replmux provisioner could let Jupyter Server ask the Rust broker to:
 
 - Create a kernel
 - Attach to an existing shared kernel
@@ -219,13 +219,13 @@ Still useful:
 ```text
 notebook checkpoint
 ├── .ipynb contents
-└── multirepl snapshot ID in metadata
+└── replmux snapshot ID in metadata
 ```
 
 A server extension could coordinate:
 
 1. Save notebook.
-2. Ask Multirepl for a kernel snapshot.
+2. Ask Replmux for a kernel snapshot.
 3. Store the resulting snapshot ID in notebook metadata.
 4. Create the normal notebook checkpoint.
 
@@ -241,7 +241,7 @@ Snapshot files based on pickle/cloudpickle need a stronger rule: they must be tr
 
 JupyterLab RTC/Yjs already handles collaborative notebook document editing. Let it own concurrent cell/text edits.
 
-Multirepl should own:
+Replmux should own:
 
 - Shared kernel namespace
 - Execution ordering
@@ -264,15 +264,15 @@ There is no standard Jupyter protocol for:
 - Multiplayer execution transactions
 - Capturing filesystem or external side effects
 
-Those remain Multirepl extensions.
+Those remain Replmux extensions.
 
 I would expose them through the Rust broker:
 
 ```text
-multirepl.snapshot
-multirepl.restore
-multirepl.branch
-multirepl.list_snapshots
+replmux.snapshot
+replmux.restore
+replmux.branch
+replmux.list_snapshots
 ```
 
 and surface them to Jupyter through comms or a Server extension.
@@ -286,7 +286,7 @@ Store three linked artifacts:
 ```text
 Notebook (.ipynb)
 ├── portable cells, outputs, cell IDs
-├── custom Multirepl event metadata
+├── custom Replmux event metadata
 └── snapshot/environment references
 
 Execution log
@@ -306,4 +306,4 @@ Restore priority:
 2. Replay log tail.
 3. If snapshot is incompatible, rebuild from notebook/event log.
 
-That gives users ordinary Jupyter portability while preserving the richer multiplayer and snapshot behavior when Multirepl is present.
+That gives users ordinary Jupyter portability while preserving the richer multiplayer and snapshot behavior when Replmux is present.

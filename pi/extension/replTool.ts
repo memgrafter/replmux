@@ -22,13 +22,13 @@ const replManageSchema = Type.Object({
 		Type.Literal("connect"),
 	]),
 	name: Type.Optional(Type.String({ description: "[optional] Kernel name. Auto-generated on create if omitted." })),
-	binary: Type.Optional(Type.String({ description: "[optional] Path to the Rust multirepl binary" })),
+	binary: Type.Optional(Type.String({ description: "[optional] Path to the Rust replmux binary" })),
 });
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
-const DEFAULT_BINARY = process.env.MULTIREPL_BINARY ?? "~/code/multirepl/cli/target/release/multirepl";
-const DEFAULT_BROKER_SOCKET = process.env.MULTIREPL_BROKER_SOCKET ?? "~/.multirepl/b.sock";
+const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? "~/code/replmux/cli/target/release/replmux";
+const DEFAULT_BROKER_SOCKET = process.env.REPLMUX_BROKER_SOCKET ?? "~/.replmux/b.sock";
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
@@ -55,7 +55,7 @@ async function runCli(
 	const stdout = result.stdout.trim();
 	const stderr = result.stderr.trim();
 	if (result.code !== 0) {
-		throw new Error(stderr || stdout || `multirepl exited with code ${result.code}`);
+		throw new Error(stderr || stdout || `replmux exited with code ${result.code}`);
 	}
 	return { stdout, stderr };
 }
@@ -122,10 +122,10 @@ async function sendToBroker(kernelName: string, code: string): Promise<Record<st
 		throw error;
 	}
 	if (!wireResponse.ok) {
-		throw new Error(wireResponse.error || "Multirepl broker request failed");
+		throw new Error(wireResponse.error || "Replmux broker request failed");
 	}
 	if (wireResponse.response?.type !== "executed" || !wireResponse.response.response) {
-		throw new Error("Multirepl broker returned an invalid execution response");
+		throw new Error("Replmux broker returned an invalid execution response");
 	}
 	return wireResponse.response.response;
 }
@@ -141,12 +141,12 @@ async function executeViaCli(
 		timeout: 30_000,
 	});
 	if (result.code !== 0) {
-		throw new Error(result.stderr.trim() || result.stdout.trim() || `multirepl exited with code ${result.code}`);
+		throw new Error(result.stderr.trim() || result.stdout.trim() || `replmux exited with code ${result.code}`);
 	}
 	try {
 		return JSON.parse(result.stdout);
 	} catch {
-		throw new Error(`Invalid JSON from multirepl: ${result.stdout.slice(0, 200)}`);
+		throw new Error(`Invalid JSON from replmux: ${result.stdout.slice(0, 200)}`);
 	}
 }
 

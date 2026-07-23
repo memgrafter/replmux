@@ -4,8 +4,8 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly CLI_MANIFEST="${REPO_ROOT}/cli/Cargo.toml"
-readonly RELEASE_BINARY="${REPO_ROOT}/cli/target/release/multirepl"
-readonly OUTPUT_DIR="${MULTIREPL_RELEASE_DIR:-${REPO_ROOT}/dist}"
+readonly RELEASE_BINARY="${REPO_ROOT}/cli/target/release/replmux"
+readonly OUTPUT_DIR="${REPLMUX_RELEASE_DIR:-${REPO_ROOT}/dist}"
 
 staging_dir=""
 
@@ -101,14 +101,14 @@ main() {
     exit 1
   fi
 
-  release_name="multirepl-v${version}-${target}"
+  release_name="replmux-v${version}-${target}"
   archive_path="${OUTPUT_DIR}/${release_name}.tar.gz"
   mkdir -p -- "${OUTPUT_DIR}"
   staging_dir="$(mktemp -d "${OUTPUT_DIR}/.${release_name}.XXXXXX")"
   bundle_dir="${staging_dir}/${release_name}"
   mkdir -p -- "${bundle_dir}"
 
-  install -m 0755 "${RELEASE_BINARY}" "${bundle_dir}/multirepl"
+  install -m 0755 "${RELEASE_BINARY}" "${bundle_dir}/replmux"
   install -m 0644 "${REPO_ROOT}/minimal_kernel_clean.py" "${bundle_dir}/minimal_kernel_clean.py"
   install -m 0644 "${REPO_ROOT}/cli/README.md" "${bundle_dir}/README.md"
 

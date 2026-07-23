@@ -20,13 +20,13 @@ from .store import (
 )
 
 
-DEFAULT_DATABASE_PATH = Path("~/.jupyter-repl/multirepl.db").expanduser()
+DEFAULT_DATABASE_PATH = Path("~/.jupyter-repl/replmux.db").expanduser()
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
     resolved_path = Path(
         database_path
-        or os.environ.get("MULTIREPL_DB_PATH", DEFAULT_DATABASE_PATH)
+        or os.environ.get("REPLMUX_DB_PATH", DEFAULT_DATABASE_PATH)
     ).expanduser()
     store = RuntimeStore(resolved_path)
 
@@ -36,7 +36,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         yield
 
     application = FastAPI(
-        title="Multirepl Runtime API",
+        title="Replmux Runtime API",
         summary="Durable runtime metadata for collaborative kernels.",
         version="0.1.0",
         lifespan=lifespan,

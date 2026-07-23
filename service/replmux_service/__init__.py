@@ -1,4 +1,4 @@
-"""Multirepl runtime service."""
+"""Replmux runtime service."""
 
 from .app import app, create_app
 

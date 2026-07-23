@@ -147,7 +147,7 @@ pub fn serve(socket_path: &Path) -> Result<(), String> {
         )
     })?;
     let _cleanup = SocketCleanup(socket_path.to_path_buf());
-    println!("Multirepl broker listening on {}", socket_path.display());
+    println!("Replmux broker listening on {}", socket_path.display());
 
     for stream in listener.incoming() {
         match stream {
@@ -173,12 +173,12 @@ pub fn serve(socket_path: &Path) -> Result<(), String> {
 }
 
 pub fn default_socket_path() -> PathBuf {
-    std::env::var_os("MULTIREPL_BROKER_SOCKET")
+    std::env::var_os("REPLMUX_BROKER_SOCKET")
         .map(PathBuf::from)
         .or_else(|| {
-            std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".multirepl/b.sock"))
+            std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".replmux/b.sock"))
         })
-        .unwrap_or_else(|| PathBuf::from(".multirepl/b.sock"))
+        .unwrap_or_else(|| PathBuf::from(".replmux/b.sock"))
 }
 
 fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
@@ -380,14 +380,14 @@ mod tests {
     fn auto_mode_short_circuits_missing_socket_to_local_service() {
         let request = KernelRequest {
             operation: KernelOperation::List,
-            kernel_dir: Some(PathBuf::from("/tmp/multirepl-missing-local-test")),
+            kernel_dir: Some(PathBuf::from("/tmp/replmux-missing-local-test")),
             python: None,
             kernel_script: None,
         };
         let response = dispatch(
             request,
             TransportMode::Auto,
-            Path::new("/tmp/multirepl-definitely-missing/b.sock"),
+            Path::new("/tmp/replmux-definitely-missing/b.sock"),
         )
         .unwrap();
         assert!(matches!(response, KernelResponse::Listed { kernels } if kernels.is_empty()));

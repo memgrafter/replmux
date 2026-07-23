@@ -501,7 +501,7 @@ Notebook metadata stores stable identifiers:
 
 ```json
 {
-  "multirepl": {
+  "replmux": {
     "runtime_id": "rt_01J...",
     "branch_id": "br_main",
     "attachment_id": "attach_01J..."
@@ -516,7 +516,7 @@ After JupyterLab exits, the Runtime remains. Reopening the notebook requests a f
 REST should be the semantic API, but local agents can use HTTP over a Unix socket:
 
 ```text
-~/.multirepl/multirepl.sock
+~/.replmux/replmux.sock
 ```
 
 The same request model can be exposed through:
@@ -597,7 +597,7 @@ Therefore:
 - Agents see notebook executions.
 - Both share provenance and ordering.
 - Yjs owns notebook text.
-- Multirepl owns runtime state.
+- Replmux owns runtime state.
 
 # Recommended MVP
 

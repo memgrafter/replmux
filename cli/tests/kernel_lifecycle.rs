@@ -4,7 +4,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use multirepl_runtime_cli::jupyter::{JupyterClient, JupyterConnection};
+use replmux_runtime_cli::jupyter::{JupyterClient, JupyterConnection};
 
 fn command(kernel_dir: &PathBuf) -> Command {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -15,7 +15,7 @@ fn command(kernel_dir: &PathBuf) -> Command {
     } else {
         PathBuf::from("python3")
     };
-    let mut command = Command::new(env!("CARGO_BIN_EXE_multirepl"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_replmux"));
     command
         .arg("--kernel-dir")
         .arg(kernel_dir)
@@ -194,7 +194,7 @@ fn launches_kernelspec_and_attaches_standard_connection() {
         &spec_path,
         serde_json::to_vec_pretty(&serde_json::json!({
             "argv": [python, "-c", launcher, "{connection_file}", kernel_script],
-            "display_name": "Multirepl test kernel",
+            "display_name": "Replmux test kernel",
             "language": "python"
         }))
         .unwrap(),

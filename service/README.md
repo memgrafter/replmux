@@ -1,4 +1,4 @@
-# Multirepl Runtime API
+# Replmux Runtime API
 
 A small FastAPI service for durable runtime metadata. It implements only runtime CRUD; it does not start kernels or expose executions, branches, snapshots, or attachments.
 
@@ -7,13 +7,13 @@ A small FastAPI service for durable runtime metadata. It implements only runtime
 ```bash
 cd service
 uv sync --dev
-uv run uvicorn multirepl_service.app:app --reload
+uv run uvicorn replmux_service.app:app --reload
 ```
 
-The SQLite database defaults to `~/.jupyter-repl/multirepl.db`. Override it with:
+The SQLite database defaults to `~/.jupyter-repl/replmux.db`. Override it with:
 
 ```bash
-MULTIREPL_DB_PATH=/tmp/multirepl.db uv run uvicorn multirepl_service.app:app
+REPLMUX_DB_PATH=/tmp/replmux.db uv run uvicorn replmux_service.app:app
 ```
 
 OpenAPI is available at `http://127.0.0.1:8000/openapi.json`, with interactive documentation at `/docs`.

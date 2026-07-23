@@ -1,4 +1,4 @@
-No—but you should consider abandoning the parts of Multirepl that duplicate Jupyter.
+No—but you should consider abandoning the parts of Replmux that duplicate Jupyter.
 
 ## What RTC/Yjs already solves
 
@@ -8,7 +8,7 @@ No—but you should consider abandoning the parts of Multirepl that duplicate Ju
 - Shared outputs and metadata
 - Human presence in JupyterLab
 
-If Multirepl’s goal were only “two people edit and execute the same notebook,” RTC plus an ordinary shared Jupyter kernel covers most of it.
+If Replmux’s goal were only “two people edit and execute the same notebook,” RTC plus an ordinary shared Jupyter kernel covers most of it.
 
 ## What RTC does not solve
 
@@ -23,11 +23,11 @@ If Multirepl’s goal were only “two people edit and execute the same notebook
 - Runtime state shared across notebooks and non-notebook clients
 - Reconnecting to long-lived computation after JupyterLab exits
 
-Yjs collaborates on the **document**. Multirepl can collaborate on the **runtime**.
+Yjs collaborates on the **document**. Replmux can collaborate on the **runtime**.
 
 ## Recommended pivot
 
-Position Multirepl as:
+Position Replmux as:
 
 > A collaborative kernel runtime, execution ledger, and snapshot manager for agents, with Jupyter as one frontend.
 
@@ -38,7 +38,7 @@ JupyterLab RTC/Yjs
         │
         ├── notebook document collaboration
         │
-Multirepl Rust broker
+Replmux Rust broker
         ├── kernel lifecycle
         ├── ordered execution ledger
         ├── agent/user attribution
@@ -76,7 +76,7 @@ Keep it as transport, but feed requests into the same ordered execution path and
 
 ## What remains differentiated
 
-| Capability | Jupyter RTC | Multirepl |
+| Capability | Jupyter RTC | Replmux |
 |---|---:|---:|
 | Collaborative cell editing | Yes | Reuse RTC |
 | Shared kernel | Basic | Durable, agent-oriented |
@@ -91,7 +91,7 @@ Keep it as transport, but feed requests into the same ordered execution path and
 
 ## Honest abandonment criterion
 
-Abandon Multirepl if all you need is:
+Abandon Replmux if all you need is:
 
 1. Humans sharing notebooks
 2. Agents editing notebook cells
@@ -100,4 +100,4 @@ Abandon Multirepl if all you need is:
 
 Continue if runtime collaboration and agent orchestration are the product.
 
-My recommendation: **do not abandon Multirepl; narrow it.** Abandon the custom editor and probably the custom primary kernel. Build the Rust broker around standard Jupyter kernels, with replay, attribution, snapshots, and branches as the core.
+My recommendation: **do not abandon Replmux; narrow it.** Abandon the custom editor and probably the custom primary kernel. Build the Rust broker around standard Jupyter kernels, with replay, attribution, snapshots, and branches as the core.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full lifecycle test for the multirepl project.
+"""Full lifecycle test for the replmux project.
 
 Usage:
     python3 test_lifecycle.py          # uses 'lifecycle-test' kernel

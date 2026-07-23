@@ -2,11 +2,11 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
-use multirepl_runtime_cli::broker::{
+use replmux_runtime_cli::broker::{
     KernelOperation, KernelRequest, KernelResponse, TransportMode, default_socket_path, dispatch,
     serve,
 };
-use multirepl_runtime_cli::{
+use replmux_runtime_cli::{
     ApiClient, EnvironmentSpec, ReplResponse, Runtime, RuntimeCreate, RuntimeStatus, RuntimeUpdate,
     SnapshotPolicy,
 };
@@ -14,16 +14,12 @@ use serde::Serialize;
 use serde_json::json;
 
 #[derive(Debug, Parser)]
-#[command(
-    name = "multirepl",
-    version,
-    about = "Manage Multirepl runtimes over HTTP"
-)]
+#[command(name = "replmux", version, about = "Manage Replmux runtimes over HTTP")]
 struct Cli {
     #[arg(
         long,
         global = true,
-        env = "MULTIREPL_API_URL",
+        env = "REPLMUX_API_URL",
         default_value = "http://127.0.0.1:8000"
     )]
     api_url: String,
@@ -31,19 +27,19 @@ struct Cli {
     #[arg(long, global = true, help = "Print JSON instead of a table")]
     json: bool,
 
-    #[arg(long, global = true, env = "MULTIREPL_KERNEL_DIR")]
+    #[arg(long, global = true, env = "REPLMUX_KERNEL_DIR")]
     kernel_dir: Option<PathBuf>,
 
-    #[arg(long, global = true, env = "MULTIREPL_PYTHON")]
+    #[arg(long, global = true, env = "REPLMUX_PYTHON")]
     python: Option<PathBuf>,
 
-    #[arg(long, global = true, env = "MULTIREPL_KERNEL_SCRIPT")]
+    #[arg(long, global = true, env = "REPLMUX_KERNEL_SCRIPT")]
     kernel_script: Option<PathBuf>,
 
     #[arg(long, global = true, default_value = "auto")]
     transport: TransportMode,
 
-    #[arg(long, global = true, env = "MULTIREPL_BROKER_SOCKET")]
+    #[arg(long, global = true, env = "REPLMUX_BROKER_SOCKET")]
     broker_socket: Option<PathBuf>,
 
     #[command(subcommand)]

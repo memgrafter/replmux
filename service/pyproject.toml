@@ -1,7 +1,7 @@
 [project]
-name = "multirepl-service"
+name = "replmux-service"
 version = "0.1.0"
-description = "Runtime metadata API for multirepl"
+description = "Runtime metadata API for replmux"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115,<1",

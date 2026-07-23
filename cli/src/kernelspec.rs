@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn writes_standard_connection_document() {
         let path = PathBuf::from(format!(
-            "/tmp/multirepl-connection-test-{}.json",
+            "/tmp/replmux-connection-test-{}.json",
             std::process::id()
         ));
         let connection = write_connection_file(&path).unwrap();

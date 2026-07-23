@@ -62,16 +62,16 @@ jobs:
         run: |
           set -euo pipefail
           version="$(awk '/^\[package\]$/ { package=1; next } /^\[/ { package=0 } package && /^version = / { gsub(/"/, "", $3); print $3; exit }' cli/Cargo.toml)"
-          archive="dist/multirepl-v${version}-${{ matrix.target }}.tar.gz"
+          archive="dist/replmux-v${version}-${{ matrix.target }}.tar.gz"
           test -s "${archive}"
           test -s "${archive}.sha256"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: multirepl-${{ matrix.target }}
+          name: replmux-${{ matrix.target }}
           path: |
-            dist/multirepl-*.tar.gz
-            dist/multirepl-*.tar.gz.sha256
+            dist/replmux-*.tar.gz
+            dist/replmux-*.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from multirepl_service.app import create_app
+from replmux_service.app import create_app
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ def test_openapi_schema_is_small_and_explicit(client):
     assert response.status_code == 200
     schema = response.json()
 
-    assert schema["info"]["title"] == "Multirepl Runtime API"
+    assert schema["info"]["title"] == "Replmux Runtime API"
     assert set(schema["paths"]) == {
         "/v1/runtimes",
         "/v1/runtimes/{runtime_id}",

@@ -49,7 +49,7 @@ main() {
   build_and_test_cli
 
   printf '\nBuild and test commands completed.\n'
-  printf 'CLI artifact: %s\n' "${REPO_ROOT}/cli/target/release/multirepl"
+  printf 'CLI artifact: %s\n' "${REPO_ROOT}/cli/target/release/replmux"
 }
 
 main "$@"

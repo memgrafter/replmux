@@ -60,10 +60,10 @@ impl KernelManager {
     ) -> Result<Self, String> {
         let directory = directory.unwrap_or_else(default_kernel_directory);
         let python = python
-            .or_else(|| env::var_os("MULTIREPL_PYTHON").map(PathBuf::from))
+            .or_else(|| env::var_os("REPLMUX_PYTHON").map(PathBuf::from))
             .unwrap_or_else(|| PathBuf::from("python3"));
         let kernel_script = kernel_script
-            .or_else(|| env::var_os("MULTIREPL_KERNEL_SCRIPT").map(PathBuf::from))
+            .or_else(|| env::var_os("REPLMUX_KERNEL_SCRIPT").map(PathBuf::from))
             .unwrap_or_else(default_kernel_script);
         Ok(Self {
             directory,
@@ -90,7 +90,7 @@ impl KernelManager {
 
         if !self.kernel_script.exists() {
             return Err(format!(
-                "kernel script not found: {} (set --kernel-script or MULTIREPL_KERNEL_SCRIPT)",
+                "kernel script not found: {} (set --kernel-script or REPLMUX_KERNEL_SCRIPT)",
                 self.kernel_script.display()
             ));
         }
@@ -375,7 +375,7 @@ fn default_kernel_script() -> PathBuf {
 }
 
 fn default_kernel_directory() -> PathBuf {
-    env::var_os("MULTIREPL_KERNEL_DIR")
+    env::var_os("REPLMUX_KERNEL_DIR")
         .map(PathBuf::from)
         .or_else(|| {
             env::var_os("HOME").map(|home| PathBuf::from(home).join(".jupyter-repl/kernels"))
