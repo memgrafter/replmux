@@ -46,7 +46,7 @@ packages = ["r-irkernel"]
 id = "cpp-xeus-cling"
 display_name = "C++ (xeus-cling)"
 language = "c++"
-kernelspec = "xcpp"
+kernelspec = "xcpp23"
 tier = "optional"
 project_url = "https://github.com/jupyter-xeus/xeus-cling"
 
@@ -81,3 +81,6 @@ project_url = "https://github.com/dotnet/interactive"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["dotnet-interactive"]
+setup = [
+  ["dotnet-interactive", "jupyter", "install", "--path", "{prefix}/share/jupyter/kernels"],
+]

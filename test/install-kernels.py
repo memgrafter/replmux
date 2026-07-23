@@ -83,7 +83,13 @@ def create_command(kernel: dict[str, Any], environment_root: Path) -> list[str]:
 def setup_commands(kernel: dict[str, Any], environment_root: Path) -> list[list[str]]:
     prefix = environment_root / kernel["id"]
     return [
-        ["micromamba", "run", "--prefix", str(prefix), *command]
+        [
+            "micromamba",
+            "run",
+            "--prefix",
+            str(prefix),
+            *(argument.replace("{prefix}", str(prefix)) for argument in command),
+        ]
         for command in kernel["micromamba"].get("setup", [])
     ]
 
@@ -110,16 +116,23 @@ def main() -> int:
     environment_root = arguments.environment_root.resolve()
     for kernel in kernels:
         print(f"\n==> {kernel['display_name']} ({kernel['id']})", flush=True)
-        commands = [create_command(kernel, environment_root)]
-        commands.extend(setup_commands(kernel, environment_root))
-        for command in commands:
-            return_code = run_command(command, arguments.dry_run)
+        create = create_command(kernel, environment_root)
+        return_code = run_command(create, arguments.dry_run)
+        if return_code == 0 and not arguments.dry_run:
+            kernelspec_directory = (
+                environment_root / kernel["id"] / "share" / "jupyter" / "kernels"
+            )
+            kernelspec_directory.mkdir(parents=True, exist_ok=True)
+        for command in setup_commands(kernel, environment_root):
             if return_code != 0:
-                print(
-                    f"error: failed to provision {kernel['id']} ({return_code})",
-                    file=sys.stderr,
-                )
-                return return_code
+                break
+            return_code = run_command(command, arguments.dry_run)
+        if return_code != 0:
+            print(
+                f"error: failed to provision {kernel['id']} ({return_code})",
+                file=sys.stderr,
+            )
+            return return_code
     return 0
 
 
