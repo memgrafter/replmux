@@ -125,7 +125,7 @@ noninteractive installation, and automation-compatible licensing.
 
 ## Ready kernels and use cases
 
-The compatibility matrix currently contains ten lifecycle-tested choices:
+The compatibility matrix currently contains fourteen lifecycle-tested choices:
 
 | Kernel | Reach for it when the task involves |
 |---|---|
@@ -139,6 +139,10 @@ The compatibility matrix currently contains ten lifecycle-tested choices:
 | **Fortran / LFortran** | Numerical kernels, array and loop semantics, modern Fortran prototyping, understanding legacy scientific routines, or getting interactive compiler feedback. |
 | **SQLite / xeus-sqlite** | Schema design, joins, window functions, query plans, relational transformations, or maintaining a small local analytical database across calls. |
 | **Rust / EvCxR** | Ownership and borrowing experiments, traits and generics, compiler-guided API design, systems algorithms, or incremental Rust prototypes with persistent definitions. |
+| **Lua / xeus-lua** | Embedded scripting, table semantics, metatables, coroutine experiments, configuration logic, or algorithms destined for Lua-based applications and game engines. |
+| **R / xeus-r** | Native xeus protocol behavior, an alternative R execution engine, or cross-checking IRkernel-specific behavior while retaining normal statistical use cases. |
+| **Python / xeus-python** | Native xeus protocol coverage, comparing kernel implementations, or reproducing behavior in deployments that use xeus-python rather than ipykernel. |
+| **SQL / xeus-sql** | Reusing SQL across SQLite and configured PostgreSQL, MySQL, or other SOCI-backed databases; connection behavior and credentials require explicit handling. |
 
 Use Python when no specialized kernel materially improves the work. Prefer
 SageMath over floating-point Python for exact mathematics, R over hand-built

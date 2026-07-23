@@ -22,7 +22,7 @@ Why multiple kernels? Agents can use the system that expresses the problem
 most directly: Python for general work, Julia or Fortran for numerical code, R
 for statistics, C++/Rust/C# for typed systems work, JavaScript for web data,
 SageMath for exact mathematics, and SQLite for stateful relational analysis.
-The ten lifecycle-tested choices and concrete use cases are listed in
+The fourteen lifecycle-tested choices and concrete use cases are listed in
 [`SKILL.md`](SKILL.md#ready-kernels-and-use-cases).
 
 Replmux is intentionally a runtime primitive, not a sandbox or durable database.

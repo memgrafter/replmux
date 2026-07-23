@@ -29,6 +29,10 @@ Choose the narrowest capable kernel instead of assuming Python:
 8. LFortran — modern or legacy Fortran and numerical routines.
 9. xeus-sqlite — stateful SQL, schemas, joins, and query plans.
 10. EvCxR — Rust ownership, type, compiler, and systems experiments.
+11. xeus-lua — lightweight embedded scripting and Lua semantics.
+12. xeus-r — native-protocol R compatibility and statistical cross-checks.
+13. xeus-python — native-protocol Python compatibility and alternate behavior.
+14. xeus-sql — stateful SQL across SQLite and configured database backends.
 
 These are lifecycle-tested entries in `tests/jupyter-kernels/kernels.toml`.
 Discover the installed kernelspec name before launch; names can vary by version.

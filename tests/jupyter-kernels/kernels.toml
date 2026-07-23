@@ -137,3 +137,51 @@ project_url = "https://github.com/evcxr/evcxr"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["evcxr"]
+
+[[kernels]]
+id = "lua-xeus"
+display_name = "Lua (xeus-lua)"
+language = "lua"
+kernelspec = "xlua"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-lua"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-lua"]
+
+[[kernels]]
+id = "r-xeus"
+display_name = "R (xeus-r)"
+language = "R"
+kernelspec = "xr"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-r"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-r"]
+
+[[kernels]]
+id = "python-xeus"
+display_name = "Python (xeus-python)"
+language = "python"
+kernelspec = "xpython"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-python"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-python"]
+
+[[kernels]]
+id = "sql-xeus"
+display_name = "SQL (xeus-sql)"
+language = "sql"
+kernelspec = "xsql"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-sql"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-sql"]
