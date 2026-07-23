@@ -18,6 +18,13 @@ installed kernels for Julia, R, C++, JavaScript, .NET, and domain systems such
 as SageMath—not only Python. Its bundled minimal Python worker adds a fast local
 socket for agent tools, while standard kernels use signed ZeroMQ channels.
 
+Why multiple kernels? Agents can use the system that expresses the problem
+most directly: Python for general work, Julia or Fortran for numerical code, R
+for statistics, C++/Rust/C# for typed systems work, JavaScript for web data,
+SageMath for exact mathematics, and SQLite for stateful relational analysis.
+The ten lifecycle-tested choices and concrete use cases are listed in
+[`SKILL.md`](SKILL.md#ready-kernels-and-use-cases).
+
 Replmux is intentionally a runtime primitive, not a sandbox or durable database.
 Kernel state disappears when its process dies, and executing code grants that
 kernel the user's local permissions.

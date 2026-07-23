@@ -15,6 +15,24 @@ collaboration.
 - Test persistent state and failures, not only one-shot execution.
 - Treat every kernel as unsandboxed arbitrary code.
 
+## Ready kernel choices
+
+Choose the narrowest capable kernel instead of assuming Python:
+
+1. Python — automation, data, libraries, and general analysis.
+2. Julia — numerical science, optimization, and high-performance arrays.
+3. R — statistics, models, and statistical graphics.
+4. C++ — native APIs, compiler behavior, and performance prototypes.
+5. JavaScript — JSON, web logic, Node APIs, and async experiments.
+6. C# — .NET APIs, LINQ, and typed application logic.
+7. SageMath — exact symbolic algebra, number theory, and combinatorics.
+8. LFortran — modern or legacy Fortran and numerical routines.
+9. xeus-sqlite — stateful SQL, schemas, joins, and query plans.
+10. EvCxR — Rust ownership, type, compiler, and systems experiments.
+
+These are lifecycle-tested entries in `tests/jupyter-kernels/kernels.toml`.
+Discover the installed kernelspec name before launch; names can vary by version.
+
 Deeper operational details live in [`cli/README.md`](cli/README.md); kernel
 recommendations live in
 [`docs/AGENT_KERNEL_CATALOG.md`](docs/AGENT_KERNEL_CATALOG.md).

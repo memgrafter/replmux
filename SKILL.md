@@ -121,17 +121,45 @@ not a support guarantee.
 
 For agent work, prioritize maintained kernels with persistent state,
 deterministic text output, standard interrupt and inspection behavior,
-noninteractive installation, and automation-compatible licensing. Recommended
-capability additions are SageMath for broad computer algebra, LFortran for
-modern Fortran, Maxima and GAP for specialized algebra, Octave for free
-MATLAB-like computing, xeus-sqlite for local data work, and EvCxR for Rust.
-Wolfram/Mathematica and MATLAB kernels require user-managed runtimes and valid
-licenses. Hardware, Docker, database, and remote-service kernels require
-explicit credentials and isolation; Replmux is not a sandbox.
+noninteractive installation, and automation-compatible licensing.
 
-See [docs/AGENT_KERNEL_CATALOG.md](docs/AGENT_KERNEL_CATALOG.md) for the curated
-recommendations and [`tests/jupyter-kernels/kernels.toml`](tests/jupyter-kernels/kernels.toml)
-for the machine-tested compatibility matrix.
+## Ready kernels and use cases
+
+The compatibility matrix currently contains ten lifecycle-tested choices:
+
+| Kernel | Reach for it when the task involves |
+|---|---|
+| **Python / ipykernel** | General automation, filesystem and text processing, dataframes, machine learning, visualization, or the broad Python package ecosystem. |
+| **Julia / IJulia** | Numerical simulation, optimization, differential equations, scientific packages, multiple dispatch, or array code that should remain close to mathematical notation. |
+| **R / IRkernel** | Statistical inference, regression and experimental models, epidemiology, tidy data, or publication-oriented statistical graphics. |
+| **C++ / xeus-cpp** | Native library exploration, templates, compiler diagnostics, memory-layout questions, performance prototypes, or reproducing C++ API behavior incrementally. |
+| **JavaScript / IJavascript** | JSON transformations, Node APIs, promises and async behavior, web algorithms, regular expressions, or testing JavaScript semantics without creating a project. |
+| **C# / .NET Interactive** | LINQ queries, .NET APIs, typed domain models, async C#, collection transformations, or experiments intended for an existing .NET codebase. |
+| **SageMath** | Exact arithmetic, symbolic algebra, polynomial rings, number theory, combinatorics, graph theory, or cross-checking results through its integrated mathematical systems. |
+| **Fortran / LFortran** | Numerical kernels, array and loop semantics, modern Fortran prototyping, understanding legacy scientific routines, or getting interactive compiler feedback. |
+| **SQLite / xeus-sqlite** | Schema design, joins, window functions, query plans, relational transformations, or maintaining a small local analytical database across calls. |
+| **Rust / EvCxR** | Ownership and borrowing experiments, traits and generics, compiler-guided API design, systems algorithms, or incremental Rust prototypes with persistent definitions. |
+
+Use Python when no specialized kernel materially improves the work. Prefer
+SageMath over floating-point Python for exact mathematics, R over hand-built
+statistics, and SQLite over dataframe emulation when relational semantics are
+the point. Use explicit printed output in lifecycle checks because some kernels
+render bare expressions only as rich notebook data.
+
+Installed kernelspec names can vary by runtime version. Discover them first:
+
+```bash
+jupyter kernelspec list --json
+replmux kernel create exact-math --kernelspec sagemath
+```
+
+The matrix ID, common kernelspec name, packages, and upstream project are in
+[`tests/jupyter-kernels/kernels.toml`](tests/jupyter-kernels/kernels.toml).
+See [docs/AGENT_KERNEL_CATALOG.md](docs/AGENT_KERNEL_CATALOG.md) for candidates,
+known host blockers, licensing constraints, and isolation guidance.
+Wolfram/Mathematica and MATLAB require user-managed runtimes and valid licenses.
+Hardware, Docker, database, and remote-service kernels require explicit
+credentials and isolation; Replmux is not a sandbox.
 
 ## Standalone CLI
 
