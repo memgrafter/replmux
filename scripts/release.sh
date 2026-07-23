@@ -8,6 +8,38 @@ readonly RELEASE_BINARY="${REPO_ROOT}/cli/target/release/replmux"
 readonly OUTPUT_DIR="${REPLMUX_RELEASE_DIR:-${REPO_ROOT}/dist}"
 
 staging_dir=""
+fast_mode=false
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/release.sh [--fast]
+
+Options:
+  --fast  Package the existing release binary without cleaning, building, or testing.
+  -h, --help
+          Show this help.
+EOF
+}
+
+parse_arguments() {
+  while (( $# > 0 )); do
+    case "$1" in
+      --fast)
+        fast_mode=true
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        printf 'error: unknown argument: %s\n' "$1" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+    shift
+  done
+}
 
 cleanup() {
   if [[ -n "${staging_dir}" && -d "${staging_dir}" ]]; then
@@ -79,18 +111,28 @@ write_checksum() {
 }
 
 main() {
+  parse_arguments "$@"
+
   require_command awk
-  require_command cargo
   require_command grep
   require_command rustc
   require_command tar
   require_command uname
-  require_command uv
 
-  printf '\n==> Cleaning Rust CLI build artifacts\n'
-  cargo clean --manifest-path "${CLI_MANIFEST}"
+  if [[ "${fast_mode}" == true ]]; then
+    if [[ ! -x "${RELEASE_BINARY}" ]]; then
+      printf 'error: --fast requires an existing release binary: %s\n' "${RELEASE_BINARY}" >&2
+      exit 1
+    fi
+    printf '\n==> Fast mode: using existing untested release binary\n'
+  else
+    require_command cargo
+    require_command uv
+    printf '\n==> Cleaning Rust CLI build artifacts\n'
+    cargo clean --manifest-path "${CLI_MANIFEST}"
+    "${SCRIPT_DIR}/build-and-test.sh"
+  fi
 
-  "${SCRIPT_DIR}/build-and-test.sh"
   verify_bundled_zmq
 
   local version target release_name archive_path bundle_dir

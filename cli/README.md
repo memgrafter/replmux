@@ -96,6 +96,14 @@ From the repository root:
 
 The script cleans previous Rust build artifacts, runs the locked service and CLI test suite, builds the optimized binary, verifies that libzmq is statically bundled rather than dynamically linked, and creates a target-specific archive plus SHA-256 checksum under `dist/`. Override the destination with `REPLMUX_RELEASE_DIR`.
 
+For a local packaging-only iteration, reuse the existing release binary without cleaning, building, or testing:
+
+```bash
+./scripts/release.sh --fast
+```
+
+Fast mode still verifies static ZeroMQ linkage and creates the archive and checksum. It fails if `cli/target/release/replmux` does not already exist; use the default mode for production releases.
+
 The archive includes the CLI, `minimal_kernel_clean.py`, and this README. The Rust CLI uses its bundled libzmq for Jupyter control messages and does not require a system ZeroMQ installation. Python 3 with `pyzmq` is still required by the Python kernel worker.
 
 GitHub Actions builds and tests four native release targets on version tags or manual dispatch:
