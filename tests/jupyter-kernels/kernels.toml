@@ -113,3 +113,15 @@ project_url = "https://lfortran.org/"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["lfortran"]
+
+[[kernels]]
+id = "sql-xeus-sqlite"
+display_name = "SQLite (xeus-sqlite)"
+language = "sql"
+kernelspec = "xsqlite"
+tier = "optional"
+project_url = "https://github.com/jupyter-xeus/xeus-sqlite"
+
+[kernels.micromamba]
+channels = ["conda-forge"]
+packages = ["xeus-sqlite"]
