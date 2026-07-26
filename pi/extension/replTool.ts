@@ -27,7 +27,11 @@ const replManageSchema = Type.Object({
 
 // ── CLI wrapper ─────────────────────────────────────────────────────────────
 
-const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? "~/.local/bin/replmux";
+const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? (
+	process.platform === "win32"
+		? `${process.env.USERPROFILE ?? process.env.HOME ?? "."}\\.cargo\\bin\\replmux.exe`
+		: "~/.local/bin/replmux"
+);
 const DEFAULT_BROKER_SOCKET = process.env.REPLMUX_BROKER_SOCKET ?? "~/.replmux/b.sock";
 
 function resolvePath(p: string): string {
@@ -106,6 +110,9 @@ function sendToKernel(socketPath: string, code: string): Promise<Record<string, 
 }
 
 async function sendToBroker(kernelName: string, code: string): Promise<Record<string, any>> {
+	if (process.platform === "win32") {
+		throw new BrokerUnavailableError();
+	}
 	const socketPath = resolvePath(DEFAULT_BROKER_SOCKET);
 	let wireResponse: Record<string, any>;
 	try {
