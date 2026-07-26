@@ -161,13 +161,12 @@ class Kernel:
             self.control_socket.bind_to_random_port("tcp://127.0.0.1")
             self.heartbeat_socket.bind_to_random_port("tcp://127.0.0.1")
 
-        # Persist connection info (includes direct socket path on Unix)
+        # Persist connection info (includes socket path)
         self._write_connection_file()
 
         # Background threads
         threading.Thread(target=self._heartbeat_loop, daemon=True).start()
-        if os.name != "nt":
-            threading.Thread(target=self._socket_loop, daemon=True).start()
+        threading.Thread(target=self._socket_loop, daemon=True).start()
 
     # -- connection file ---------------------------------------------------
 
@@ -190,22 +189,20 @@ class Kernel:
             control_port=self.control_socket.getsockopt(zmq.LAST_ENDPOINT).decode().split(":")[-1],
             hb_port=self.heartbeat_socket.getsockopt(zmq.LAST_ENDPOINT).decode().split(":")[-1],
         )
-        connection = {
-            "shell_port": int(info.shell_port),
-            "iopub_port": int(info.iopub_port),
-            "control_port": int(info.control_port),
-            "hb_port": int(info.hb_port),
-            "stdin_port": 0,
-            "ip": info.ip,
-            "key": self.connection_key,
-            "transport": info.transport,
-            "signature_scheme": info.signature_scheme,
-            "kernel_name": info.kernel_name,
-        }
-        if os.name != "nt":
-            connection["socket_path"] = self.socket_path
         with open(self.connection_file, "w") as f:
-            json.dump(connection, f)
+            json.dump({
+                "shell_port": int(info.shell_port),
+                "iopub_port": int(info.iopub_port),
+                "control_port": int(info.control_port),
+                "hb_port": int(info.hb_port),
+                "stdin_port": 0,
+                "ip": info.ip,
+                "key": self.connection_key,
+                "transport": info.transport,
+                "signature_scheme": info.signature_scheme,
+                "kernel_name": info.kernel_name,
+                "socket_path": self.socket_path,
+            }, f)
 
     # -- iopub helpers -----------------------------------------------------
 

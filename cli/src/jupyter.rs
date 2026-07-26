@@ -517,11 +517,11 @@ fn unique_id(prefix: &str) -> String {
 fn utc_timestamp() -> String {
     let mut now: libc::time_t = 0;
     let mut utc = std::mem::MaybeUninit::<libc::tm>::uninit();
-    let ok = unsafe {
+    let result = unsafe {
         libc::time(&mut now);
-        gmtime(&now, utc.as_mut_ptr())
+        libc::gmtime_r(&now, utc.as_mut_ptr())
     };
-    if !ok {
+    if result.is_null() {
         return "1970-01-01T00:00:00Z".to_owned();
     }
     let utc = unsafe { utc.assume_init() };
@@ -534,16 +534,6 @@ fn utc_timestamp() -> String {
         utc.tm_min,
         utc.tm_sec
     )
-}
-
-#[cfg(unix)]
-unsafe fn gmtime(now: *const libc::time_t, utc: *mut libc::tm) -> bool {
-    unsafe { !libc::gmtime_r(now, utc).is_null() }
-}
-
-#[cfg(windows)]
-unsafe fn gmtime(now: *const libc::time_t, utc: *mut libc::tm) -> bool {
-    unsafe { libc::gmtime_s(utc, now) == 0 }
 }
 
 fn json_error(error: serde_json::Error) -> String {

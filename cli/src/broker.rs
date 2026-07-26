@@ -1,10 +1,7 @@
 use std::fs;
 use std::io::{ErrorKind, Read, Write};
-#[cfg(unix)]
 use std::net::Shutdown;
-#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-#[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -135,12 +132,6 @@ pub fn dispatch(
     }
 }
 
-#[cfg(not(unix))]
-pub fn serve(_socket_path: &Path) -> Result<(), String> {
-    Err("broker socket transport is only supported on Unix; use --transport local or auto".to_owned())
-}
-
-#[cfg(unix)]
 pub fn serve(socket_path: &Path) -> Result<(), String> {
     prepare_socket(socket_path)?;
     let listener = UnixListener::bind(socket_path).map_err(|error| {
@@ -243,7 +234,6 @@ fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
     }
 }
 
-#[cfg(unix)]
 fn handle_stream(stream: &mut UnixStream) -> Result<(), String> {
     configure_stream(stream)?;
     let mut payload = Vec::new();
@@ -268,7 +258,6 @@ fn handle_stream(stream: &mut UnixStream) -> Result<(), String> {
     write_wire_response(stream, &response)
 }
 
-#[cfg(unix)]
 fn write_wire_response(stream: &mut UnixStream, response: &WireResponse) -> Result<(), String> {
     let payload = serde_json::to_vec(response).map_err(|error| error.to_string())?;
     stream
@@ -281,15 +270,6 @@ enum BrokerClientError {
     Failure(String),
 }
 
-#[cfg(not(unix))]
-fn send_request(
-    _socket_path: &Path,
-    _request: &KernelRequest,
-) -> Result<KernelResponse, BrokerClientError> {
-    Err(BrokerClientError::Unavailable)
-}
-
-#[cfg(unix)]
 fn send_request(
     socket_path: &Path,
     request: &KernelRequest,
@@ -330,7 +310,6 @@ fn send_request(
     }
 }
 
-#[cfg(unix)]
 fn configure_stream(stream: &UnixStream) -> Result<(), String> {
     stream
         .set_read_timeout(Some(IO_TIMEOUT))
@@ -340,7 +319,6 @@ fn configure_stream(stream: &UnixStream) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-#[cfg(unix)]
 fn prepare_socket(socket_path: &Path) -> Result<(), String> {
     if let Some(parent) = socket_path.parent() {
         fs::create_dir_all(parent)
@@ -378,10 +356,8 @@ fn prepare_socket(socket_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(unix)]
 struct SocketCleanup(PathBuf);
 
-#[cfg(unix)]
 impl Drop for SocketCleanup {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.0);
