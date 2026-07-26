@@ -1,7 +1,9 @@
 use std::env;
 use std::fs;
 use std::io::{Read, Write};
+#[cfg(unix)]
 use std::net::Shutdown;
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -317,14 +319,14 @@ impl KernelManager {
                     let _ = jupyter::shutdown(&connection, SHUTDOWN_TIMEOUT);
                 }
                 if process_is_alive(pid) {
-                    send_signal(pid, libc::SIGTERM)?;
+                    terminate_process(pid, false)?;
                 }
                 let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
                 while Instant::now() < deadline && process_is_alive(pid) {
                     thread::sleep(POLL_INTERVAL);
                 }
                 if process_is_alive(pid) {
-                    send_signal(pid, libc::SIGKILL)?;
+                    terminate_process(pid, true)?;
                 }
             }
         }
@@ -407,12 +409,27 @@ fn read_pid(path: &Path) -> Result<Option<u32>, String> {
         .map_err(|error| format!("invalid PID file {}: {error}", path.display()))
 }
 
+#[cfg(unix)]
 fn process_is_alive(pid: u32) -> bool {
     let result = unsafe { libc::kill(pid as libc::pid_t, 0) };
     result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }
 
-fn send_signal(pid: u32, signal: libc::c_int) -> Result<(), String> {
+#[cfg(windows)]
+fn process_is_alive(pid: u32) -> bool {
+    let filter = format!("PID eq {pid}");
+    let Ok(output) = Command::new("tasklist")
+        .args(["/FI", &filter, "/NH"])
+        .output()
+    else {
+        return false;
+    };
+    String::from_utf8_lossy(&output.stdout).contains(&pid.to_string())
+}
+
+#[cfg(unix)]
+fn terminate_process(pid: u32, force: bool) -> Result<(), String> {
+    let signal = if force { libc::SIGKILL } else { libc::SIGTERM };
     let result = unsafe { libc::kill(pid as libc::pid_t, signal) };
     if result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
         Ok(())
@@ -422,6 +439,33 @@ fn send_signal(pid: u32, signal: libc::c_int) -> Result<(), String> {
             std::io::Error::last_os_error()
         ))
     }
+}
+
+#[cfg(windows)]
+fn terminate_process(pid: u32, force: bool) -> Result<(), String> {
+    let mut command = Command::new("taskkill");
+    command.args(["/PID", &pid.to_string()]);
+    if force {
+        command.arg("/F");
+    }
+    let status = command.status().map_err(|error| {
+        format!("failed to run taskkill for kernel process {pid}: {error}")
+    })?;
+    if status.success() || !process_is_alive(pid) {
+        Ok(())
+    } else {
+        Err(format!("failed to terminate kernel process {pid}: {status}"))
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_is_alive(_pid: u32) -> bool {
+    false
+}
+
+#[cfg(not(any(unix, windows)))]
+fn terminate_process(_pid: u32, _force: bool) -> Result<(), String> {
+    Ok(())
 }
 
 fn execute_jupyter(connection: &Value, code: &str) -> Result<ReplResponse, String> {
@@ -501,6 +545,15 @@ fn execute_jupyter(connection: &Value, code: &str) -> Result<ReplResponse, Strin
     })
 }
 
+#[cfg(not(unix))]
+fn execute_socket(socket_path: &Path, _code: &str) -> Result<ReplResponse, String> {
+    Err(format!(
+        "direct kernel socket {} is only supported on Unix",
+        socket_path.display()
+    ))
+}
+
+#[cfg(unix)]
 fn execute_socket(socket_path: &Path, code: &str) -> Result<ReplResponse, String> {
     let mut stream = UnixStream::connect(socket_path)
         .map_err(|error| format!("cannot connect to {}: {error}", socket_path.display()))?;
