@@ -247,10 +247,18 @@ fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
 fn handle_stream(stream: &mut UnixStream) -> Result<(), String> {
     configure_stream(stream)?;
     let mut payload = Vec::new();
+    // Read one byte past the cap so an oversized request is detectable. `take`
+    // alone would silently truncate, surfacing as a confusing JSON parse error
+    // instead of a clear size error.
     (&mut *stream)
-        .take(MAX_REQUEST_BYTES)
+        .take(MAX_REQUEST_BYTES + 1)
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read broker request: {error}"))?;
+    if payload.len() as u64 > MAX_REQUEST_BYTES {
+        return Err(format!(
+            "broker request exceeds maximum size of {MAX_REQUEST_BYTES} bytes"
+        ));
+    }
     let request: KernelRequest = serde_json::from_slice(&payload)
         .map_err(|error| format!("invalid broker request: {error}"))?;
     let response = match handle_request(request) {
@@ -311,10 +319,17 @@ fn send_request(
         .shutdown(Shutdown::Write)
         .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
     let mut payload = Vec::new();
+    // Read one byte past the cap so an oversized response is detectable rather
+    // than silently truncated. See the matching guard in `handle_stream`.
     (&mut stream)
-        .take(MAX_REQUEST_BYTES)
+        .take(MAX_REQUEST_BYTES + 1)
         .read_to_end(&mut payload)
         .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
+    if payload.len() as u64 > MAX_REQUEST_BYTES {
+        return Err(BrokerClientError::Failure(format!(
+            "broker response exceeds maximum size of {MAX_REQUEST_BYTES} bytes"
+        )));
+    }
     let response: WireResponse = serde_json::from_slice(&payload)
         .map_err(|error| BrokerClientError::Failure(format!("invalid broker response: {error}")))?;
     if response.ok {

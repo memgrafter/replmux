@@ -27,6 +27,26 @@ import zmq
 # ---------------------------------------------------------------------------
 
 
+def recv_until_eof(conn, bufsize: int = 65536) -> bytes:
+    """Read a complete request from a stream socket.
+
+    Reads until EOF. Every client half-closes after writing its request (Rust:
+    shutdown(Shutdown::Write), Node: socket.end()), so EOF is the only valid
+    end-of-message signal.
+
+    A short read must NOT be treated as end-of-message: recv() returns the bytes
+    available so far, not a complete frame, so a payload split across segments
+    would be silently truncated mid-JSON.
+    """
+    chunks = []
+    while True:
+        chunk = conn.recv(bufsize)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def send_message(
     socket: zmq.Socket,
     key: bytes,
@@ -436,15 +456,7 @@ class Kernel:
 
     def _handle_socket_client(self, conn):
         try:
-            data = b""
-            while True:
-                chunk = conn.recv(65536)
-                if not chunk:
-                    break
-                data += chunk
-                if len(chunk) < 65536:
-                    break
-
+            data = recv_until_eof(conn)
             req = json.loads(data.decode())
             code = req.get("code", "")
             result = self._execute_direct(code)
