@@ -252,6 +252,18 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 // ── Extension ───────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI): void {
+	pi.registerFlag("repl", {
+		description: "Start with only REPL tools enabled",
+		type: "boolean",
+		default: false,
+	});
+
 	pi.registerTool(createReplTool(pi));
 	pi.registerTool(createReplManageTool(pi));
+
+	pi.on("session_start", () => {
+		if (pi.getFlag("repl") === true) {
+			pi.setActiveTools(["repl", "repl-manage"]);
+		}
+	});
 }
