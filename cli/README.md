@@ -128,6 +128,38 @@ From the repository root:
 
 The script cleans previous Rust build artifacts, runs the locked service and CLI test suite, builds the optimized binary, verifies that libzmq is statically bundled rather than dynamically linked, and creates a target-specific archive plus SHA-256 checksum under `dist/`. Override the destination with `REPLMUX_RELEASE_DIR`.
 
+### Cross-compiled static Linux releases
+
+`--static` builds a fully-static musl Linux binary (no dynamic loader, libzmq
+bundled) instead of the host binary; `--arch aarch64|x86_64` picks the target
+architecture (defaults to the host arch):
+
+```bash
+./scripts/release.sh --static --arch aarch64   # -> dist/replmux-v0.1.0-aarch64-unknown-linux-musl.tar.gz
+./scripts/release.sh --static                  # host arch, musl target
+./scripts/release.sh --static --fast           # package the existing cross binary without rebuilding
+```
+
+Cross builds use clang/lld (`brew install llvm lld` on macOS) and an Alpine
+musl sysroot (musl-dev, linux-headers, libstdc++-dev, libgcc, gcc) that is
+downloaded from `dl-cdn.alpinelinux.org` on first use into
+`~/.cache/replmux-cross/<arch>`. The `zmq-sys` crate vendors libzmq and
+compiles it for the target, so the final link is `+crt-static` with
+`rust-lld`.
+
+`scripts/build-and-test.sh` accepts the same cross target for CI-style
+checks — it cross-builds the release binary, compiles the test suite for the
+target (`cargo test --no-run`), verifies the artifact is fully static, and can
+push the binary into a running sandmux VM for a live smoke test:
+
+```bash
+./scripts/build-and-test.sh --target aarch64-unknown-linux-musl
+./scripts/build-and-test.sh --target aarch64-unknown-linux-musl --vm py   # live smoke test
+```
+
+The live smoke test uses `SANMUX_BIN` (default `sandmux`) and `SANMUX_VM` and
+is skipped with a warning when the daemon or VM is unavailable.
+
 For a local packaging-only iteration, reuse the existing release binary without cleaning, building, or testing:
 
 ```bash
