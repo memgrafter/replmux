@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::fmt;
-use std::time::Duration;
 
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
@@ -8,6 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::models::{Runtime, RuntimeCreate, RuntimeList, RuntimeStatus, RuntimeUpdate};
+use crate::DEFAULT_OPERATION_TIMEOUT;
 
 pub const DEFAULT_API_URL: &str = "http://127.0.0.1:8000";
 
@@ -52,7 +52,7 @@ impl ApiClient {
         if !matches!(parsed.scheme(), "http" | "https") {
             return Err(ApiError::InvalidBaseUrl(base_url.to_owned()));
         }
-        let http = Client::builder().timeout(Duration::from_secs(30)).build()?;
+        let http = Client::builder().timeout(DEFAULT_OPERATION_TIMEOUT).build()?;
         Ok(Self {
             base_url: parsed,
             http,

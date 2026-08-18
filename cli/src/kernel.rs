@@ -15,11 +15,12 @@ use serde_json::Value;
 
 use crate::jupyter::{self, JupyterClient, JupyterMessage};
 use crate::kernelspec;
+use crate::DEFAULT_OPERATION_TIMEOUT;
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
-const EXECUTION_TIMEOUT: Duration = Duration::from_secs(30);
+const EXECUTION_TIMEOUT: Duration = DEFAULT_OPERATION_TIMEOUT;
 
 #[derive(Debug, Clone)]
 pub struct KernelManager {

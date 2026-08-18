@@ -35,7 +35,7 @@ Today it provides:
 - Unix socket with `0600` permissions
 - JSON request/response protocol
 - 1 MB request limit
-- 30-second I/O timeout
+- 300-second I/O timeout
 - Thread per connection
 - Local broker fallback
 - All lifecycle and execution operations

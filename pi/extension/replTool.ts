@@ -33,6 +33,7 @@ const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? (
 		: "~/.local/bin/replmux"
 );
 const DEFAULT_BROKER_SOCKET = process.env.REPLMUX_BROKER_SOCKET ?? "~/.replmux/b.sock";
+const REQUEST_TIMEOUT_MS = 300_000;
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
@@ -55,7 +56,7 @@ async function runCli(
 ): Promise<{ stdout: string; stderr: string }> {
 	const args = [action];
 	if (name) args.push(name);
-	const result = await pi.exec(resolvePath(binaryPath), args, { signal, timeout: 30_000 });
+	const result = await pi.exec(resolvePath(binaryPath), args, { signal, timeout: REQUEST_TIMEOUT_MS });
 	const stdout = result.stdout.trim();
 	const stderr = result.stderr.trim();
 	if (result.code !== 0) {
@@ -83,7 +84,7 @@ function sendJson(socketPath: string, payload: unknown): Promise<Record<string, 
 		const timeout = setTimeout(() => {
 			sock.destroy();
 			reject(new Error(`Unix socket request timed out: ${socketPath}`));
-		}, 30_000);
+		}, REQUEST_TIMEOUT_MS);
 
 		const finish = (callback: () => void) => {
 			clearTimeout(timeout);
@@ -145,7 +146,7 @@ async function executeViaCli(
 ): Promise<Record<string, any>> {
 	const result = await pi.exec(resolvePath(DEFAULT_BINARY), ["--json", "exec", kernelName, code], {
 		signal,
-		timeout: 30_000,
+		timeout: REQUEST_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		throw new Error(result.stderr.trim() || result.stdout.trim() || `replmux exited with code ${result.code}`);
@@ -163,6 +164,7 @@ function createReplTool(pi: ExtensionAPI): ToolDefinition {
 	return {
 	name: "repl",
 	label: "Repl",
+	promptSnippet: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
 	description: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
 	parameters: replSchema,
 	renderCall(args: Static<typeof replSchema>, theme: Theme, context: ToolRenderContext) {
@@ -227,6 +229,7 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 	return {
 		name: "repl-manage",
 		label: "Repl Manage",
+		promptSnippet: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
 		description: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
 		parameters: replManageSchema,
 		async execute(
@@ -253,7 +256,7 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 
 export default function (pi: ExtensionAPI): void {
 	pi.registerFlag("repl", {
-		description: "Start with only REPL tools enabled",
+		description: "Start with all active tools except bash, plus the REPL tools",
 		type: "boolean",
 		default: false,
 	});
@@ -263,7 +266,11 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("session_start", () => {
 		if (pi.getFlag("repl") === true) {
-			pi.setActiveTools(["repl", "repl-manage"]);
+			const tools = pi.getActiveTools().filter((name) => name !== "bash");
+			for (const name of ["repl", "repl-manage"]) {
+				if (!tools.includes(name)) tools.push(name);
+			}
+			pi.setActiveTools(tools);
 		}
 	});
 }

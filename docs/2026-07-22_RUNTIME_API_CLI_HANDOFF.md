@@ -172,7 +172,7 @@ Create and update commands support environment and snapshot-policy fields. For p
 
 The client:
 
-- Uses a 30-second request timeout.
+- Uses a 300-second request timeout.
 - Deserializes FastAPI runtime objects directly into Rust models.
 - Extracts FastAPI `detail` values for non-success responses.
 - Percent-encodes runtime IDs through URL path-segment handling.

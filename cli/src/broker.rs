@@ -14,8 +14,9 @@ use serde_json::Value;
 
 use crate::jupyter::JupyterMessage;
 use crate::kernel::{KernelManager, KernelStatus, ReplResponse};
+use crate::DEFAULT_OPERATION_TIMEOUT;
 
-const IO_TIMEOUT: Duration = Duration::from_secs(30);
+const IO_TIMEOUT: Duration = DEFAULT_OPERATION_TIMEOUT;
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -297,6 +298,17 @@ fn send_request(
     Err(BrokerClientError::Unavailable)
 }
 
+/// Map a socket I/O error to a user-facing message. A timed-out read or write
+/// surfaces as `WouldBlock` (EAGAIN) on macOS and `TimedOut` (ETIMEDOUT) on
+/// Linux; both mean the broker did not answer within the operation timeout.
+fn io_error_message(error: &std::io::Error, operation: &str) -> String {
+    if matches!(error.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) {
+        format!("timed out {operation}")
+    } else {
+        error.to_string()
+    }
+}
+
 #[cfg(unix)]
 fn send_request(
     socket_path: &Path,
@@ -314,7 +326,9 @@ fn send_request(
         .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
     stream
         .write_all(&payload)
-        .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
+        .map_err(|error| {
+            BrokerClientError::Failure(io_error_message(&error, "sending request to broker"))
+        })?;
     stream
         .shutdown(Shutdown::Write)
         .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
@@ -324,7 +338,9 @@ fn send_request(
     (&mut stream)
         .take(MAX_REQUEST_BYTES + 1)
         .read_to_end(&mut payload)
-        .map_err(|error| BrokerClientError::Failure(error.to_string()))?;
+        .map_err(|error| {
+            BrokerClientError::Failure(io_error_message(&error, "waiting for broker response"))
+        })?;
     if payload.len() as u64 > MAX_REQUEST_BYTES {
         return Err(BrokerClientError::Failure(format!(
             "broker response exceeds maximum size of {MAX_REQUEST_BYTES} bytes"
@@ -413,6 +429,22 @@ mod tests {
         assert_eq!("local".parse(), Ok(TransportMode::Local));
         assert_eq!("socket".parse(), Ok(TransportMode::Socket));
         assert!("remote".parse::<TransportMode>().is_err());
+    }
+
+    #[test]
+    fn maps_socket_timeout_errors_to_friendly_messages() {
+        let would_block = std::io::Error::new(ErrorKind::WouldBlock, "resource temporarily unavailable");
+        assert_eq!(
+            io_error_message(&would_block, "waiting for broker response"),
+            "timed out waiting for broker response"
+        );
+        let timed_out = std::io::Error::new(ErrorKind::TimedOut, "operation timed out");
+        assert_eq!(
+            io_error_message(&timed_out, "sending request to broker"),
+            "timed out sending request to broker"
+        );
+        let other = std::io::Error::new(ErrorKind::Other, "boom");
+        assert_eq!(io_error_message(&other, "waiting for broker response"), "boom");
     }
 
     #[test]

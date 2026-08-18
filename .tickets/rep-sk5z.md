@@ -2,7 +2,7 @@
 id: rep-sk5z
 status: open
 deps: [rep-x3ek]
-links: [rep-r9hy]
+links: [rep-r9hy, rep-ao5x]
 created: 2026-07-23T19:01:39Z
 type: task
 priority: 2

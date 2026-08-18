@@ -103,7 +103,7 @@ replmux --transport socket kernel list # require a running broker
 replmux serve                          # explicit persistent broker
 ```
 
-The broker socket is created with mode `0600`, stale sockets are replaced on startup, and requests use bounded 30-second I/O timeouts.
+The broker socket is created with mode `0600`, stale sockets are replaced on startup, and requests use bounded 300-second I/O timeouts.
 
 The default API URL is `http://127.0.0.1:8000`. Override it with either:
 
