@@ -15,6 +15,13 @@ collaboration.
 - Test persistent state and failures, not only one-shot execution.
 - Treat every kernel as unsandboxed arbitrary code.
 
+## First-time setup
+
+- Put the `replmux` binary on PATH (e.g. `~/.local/bin/`) — from a `dist/` release
+  archive or `cargo build --release` in `cli/`.
+- Python 3 with `pyzmq` for the minimal kernel worker (`pip install pyzmq`); the
+  Rust binary bundles its own libzmq.
+
 ## Build & CI scripts (`scripts/`)
 
 - `release.sh` — release packaging: cleans `target/`, runs the locked service + CLI test suites, builds the optimized binary, verifies libzmq is statically bundled, and writes the archive + SHA-256 to `dist/` (override with `REPLMUX_RELEASE_DIR`). `--static`/`--arch` cross-build a fully-static musl Linux binary; `--fast` packages an existing binary without rebuilding. GitHub Actions (`release.yml`) runs this on tags.
