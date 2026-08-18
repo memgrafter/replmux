@@ -168,7 +168,13 @@ main() {
     exit 1
   fi
 
-  release_binary="${REPO_ROOT}/cli/target/${target}/release/replmux"
+  # Non-static builds run without --target, so cargo places the binary in
+  # target/release/ rather than a target-triple subdirectory.
+  if [[ "${static_mode}" == true ]]; then
+    release_binary="${REPO_ROOT}/cli/target/${target}/release/replmux"
+  else
+    release_binary="${REPO_ROOT}/cli/target/release/replmux"
+  fi
 
   if [[ "${fast_mode}" == true ]]; then
     if [[ ! -x "${release_binary}" ]]; then
