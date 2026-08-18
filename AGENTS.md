@@ -15,6 +15,13 @@ collaboration.
 - Test persistent state and failures, not only one-shot execution.
 - Treat every kernel as unsandboxed arbitrary code.
 
+## Build & CI scripts (`scripts/`)
+
+- `release.sh` — release packaging: cleans `target/`, runs the locked service + CLI test suites, builds the optimized binary, verifies libzmq is statically bundled, and writes the archive + SHA-256 to `dist/` (override with `REPLMUX_RELEASE_DIR`). `--static`/`--arch` cross-build a fully-static musl Linux binary; `--fast` packages an existing binary without rebuilding. GitHub Actions (`release.yml`) runs this on tags.
+- `build-and-test.sh` — CI-style check: host release build + `cargo test`, or with `--target <triple>` a cross build, test compilation, and static-binary verification; `--vm <name>` pushes the binary into a running sandmux VM for a live smoke test.
+- `lib-cross.sh` — shared cross-compilation support (sourced by the two scripts above): clang/lld plus a downloaded Alpine musl sysroot for `*-unknown-linux-musl` targets.
+- `audit-rust-deps.sh` — supply-chain audit: installs missing `cargo-audit`/`cargo-deny`/`cargo-vet` once, writes their policy files, and runs all checks even if one fails.
+
 ## Ready kernel choices
 
 Choose the narrowest capable kernel instead of assuming Python:
