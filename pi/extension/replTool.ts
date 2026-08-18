@@ -164,8 +164,8 @@ function createReplTool(pi: ExtensionAPI): ToolDefinition {
 	return {
 	name: "repl",
 	label: "Repl",
-	promptSnippet: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
-	description: "Execute Python code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not.",
+	promptSnippet: "Execute code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not. Skill contains numerous available language kernels.",
+	description: "Execute code in a persistent REPL kernel. If a kernel is already running (created here or shared by another agent) you can reuse it; otherwise create one with repl-manage (action: create). State (variables, imports) persists across calls. Single expressions return a value; statements do not. Skill contains numerous available language kernels.",
 	parameters: replSchema,
 	renderCall(args: Static<typeof replSchema>, theme: Theme, context: ToolRenderContext) {
 		const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
@@ -229,8 +229,8 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 	return {
 		name: "repl-manage",
 		label: "Repl Manage",
-		promptSnippet: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
-		description: "Manage REPL kernel lifecycle. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
+		promptSnippet: "Manage REPL jupyter-compatible kernel lifecycle for numerous languages and runtimes. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
+		description: "Manage REPL jupyter-compatible kernel lifecycle for numerous languages and runtimes. create (start kernel, name is auto-generated if omitted), list (show kernels), connect (print connection JSON), delete (shutdown).",
 		parameters: replManageSchema,
 		async execute(
 		_toolCallId,
