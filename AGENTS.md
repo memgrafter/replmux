@@ -17,10 +17,15 @@ collaboration.
 
 ## First-time setup
 
-- Put the `replmux` binary on PATH (e.g. `~/.local/bin/`) — from a `dist/` release
-  archive or `cargo build --release` in `cli/`.
-- Python 3 with `pyzmq` for the minimal kernel worker (`pip install pyzmq`); the
-  Rust binary bundles its own libzmq.
+1. **Build the binary** — `scripts/release.sh` produces a `dist/` archive containing
+   the `replmux` binary (or `cargo build --release` in `cli/`).
+2. **Put `replmux` on PATH** — e.g. `~/.local/bin/`.
+3. **Provision the runtime** — `scripts/setup-runtime.sh` (after the binary exists):
+   creates a dedicated `~/.venvs/replmux` with `pyzmq` for the minimal kernel
+   worker, stages the kernel script, and installs the broker as a user systemd
+   service. On a host where `pip`/`ensurepip` are unavailable it relocates a
+   manylinux pyzmq wheel from the club-3090 venv (see the script header). The Rust
+   binary bundles its own libzmq.
 
 ## Build & CI scripts (`scripts/`)
 
@@ -28,6 +33,7 @@ collaboration.
 - `build-and-test.sh` — CI-style check: host release build + `cargo test`, or with `--target <triple>` a cross build, test compilation, and static-binary verification; `--vm <name>` pushes the binary into a running sandmux VM for a live smoke test.
 - `lib-cross.sh` — shared cross-compilation support (sourced by the two scripts above): clang/lld plus a downloaded Alpine musl sysroot for `*-unknown-linux-musl` targets.
 - `audit-rust-deps.sh` — supply-chain audit: installs missing `cargo-audit`/`cargo-deny`/`cargo-vet` once, writes their policy files, and runs all checks even if one fails.
+- `setup-runtime.sh` — runtime provisioning, run after the binary exists: creates a dedicated `~/.venvs/replmux` with `pyzmq`, copies the minimal kernel worker to `~/.local/share/replmux/`, and installs/enables the `replmux` broker as a user systemd service (`replmux.service`, restart-on-failure). Idempotent; installs nothing else.
 
 ## Ready kernel choices
 
