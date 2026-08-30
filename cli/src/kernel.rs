@@ -98,14 +98,19 @@ impl KernelManager {
             ));
         }
 
+        let stderr_path = self.stderr_path(name);
+        let stderr_file = fs::File::create(&stderr_path).map_err(|error| {
+            format!("cannot create {}: {error}", stderr_path.display())
+        })?;
         let mut child = Command::new(&self.python)
             .arg(&self.kernel_script)
             .env("KERNEL_CONNECTION_FILE", &connection_path)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::from(stderr_file))
             .spawn()
             .map_err(|error| {
+                let _ = fs::remove_file(&stderr_path);
                 format!(
                     "failed to start kernel with {}: {error}",
                     self.python.display()
@@ -120,9 +125,10 @@ impl KernelManager {
                 return Ok(pid);
             }
             if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+                let detail = read_startup_stderr(&stderr_path);
                 self.remove_artifacts(name);
                 return Err(format!(
-                    "kernel '{name}' exited during startup with {status}"
+                    "kernel '{name}' exited during startup with {status}{detail}"
                 ));
             }
             thread::sleep(POLL_INTERVAL);
@@ -130,8 +136,9 @@ impl KernelManager {
 
         let _ = child.kill();
         let _ = child.wait();
+        let detail = read_startup_stderr(&stderr_path);
         self.remove_artifacts(name);
-        Err(format!("kernel '{name}' failed to start within 5 seconds"))
+        Err(format!("kernel '{name}' failed to start within 5 seconds{detail}"))
     }
 
     pub fn create_from_kernelspec(&self, name: &str, kernelspec_name: &str) -> Result<u32, String> {
@@ -152,16 +159,21 @@ impl KernelManager {
         let spec = kernelspec::load(kernelspec_name)?;
         let prepared = kernelspec::prepare(&spec, &connection_path)?;
         let connection = kernelspec::write_connection_file(&connection_path)?;
+        let stderr_path = self.stderr_path(name);
+        let stderr_file = fs::File::create(&stderr_path).map_err(|error| {
+            format!("cannot create {}: {error}", stderr_path.display())
+        })?;
         let mut child = match Command::new(&prepared.program)
             .args(&prepared.arguments)
             .envs(&prepared.environment)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::from(stderr_file))
             .spawn()
         {
             Ok(child) => child,
             Err(error) => {
+                let _ = fs::remove_file(&stderr_path);
                 self.remove_artifacts(name);
                 return Err(format!(
                     "failed to launch kernelspec '{kernelspec_name}': {error}"
@@ -179,9 +191,10 @@ impl KernelManager {
         let deadline = Instant::now() + STARTUP_TIMEOUT;
         while Instant::now() < deadline {
             if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+                let detail = read_startup_stderr(&stderr_path);
                 self.remove_artifacts(name);
                 return Err(format!(
-                    "kernel '{name}' exited during startup with {status}"
+                    "kernel '{name}' exited during startup with {status}{detail}"
                 ));
             }
             if JupyterClient::from_value(&connection)
@@ -194,8 +207,9 @@ impl KernelManager {
         }
         let _ = child.kill();
         let _ = child.wait();
+        let detail = read_startup_stderr(&stderr_path);
         self.remove_artifacts(name);
-        Err(format!("kernel '{name}' failed to start within 5 seconds"))
+        Err(format!("kernel '{name}' failed to start within 5 seconds{detail}"))
     }
 
     pub fn attach(&self, name: &str, connection_file: &Path) -> Result<(), String> {
@@ -352,9 +366,13 @@ impl KernelManager {
             self.connection_path(name),
             self.pid_path(name),
             self.socket_path(name),
+            self.stderr_path(name),
         ] {
             let _ = fs::remove_file(path);
         }
+    }
+    fn stderr_path(&self, name: &str) -> PathBuf {
+        self.directory.join(format!("{name}.stderr.log"))
     }
 }
 
@@ -384,6 +402,25 @@ fn default_kernel_directory() -> PathBuf {
             env::var_os("HOME").map(|home| PathBuf::from(home).join(".jupyter-repl/kernels"))
         })
         .unwrap_or_else(|| PathBuf::from(".jupyter-repl/kernels"))
+}
+
+/// Read captured worker stderr for a failed startup, trimmed and size-capped,
+/// so the CLI error surfaces the real cause (e.g. missing `pyzmq`).
+fn read_startup_stderr(path: &Path) -> String {
+    const MAX_BYTES: usize = 4096;
+    let Ok(contents) = fs::read(path) else {
+        return String::new();
+    };
+    let _ = fs::remove_file(path);
+    let mut end = contents.len().min(MAX_BYTES);
+    while end > 0 && !contents[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    let text = String::from_utf8_lossy(&contents[..end]);
+    if text.is_empty() {
+        return String::new();
+    }
+    format!("\nworker stderr:\n{text}")
 }
 
 fn validate_name(name: &str) -> Result<(), String> {
