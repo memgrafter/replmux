@@ -1,6 +1,6 @@
 ---
 name: replmux
-description: Keep computational state alive across turns or share one live Jupyter workspace between agents. Use Python by default, or launch language and domain kernels for repeated calculations and collaborative analysis.
+description: Use the persistent REPL for any computation, data parsing, or transformation task, including one-off calculations, to avoid writing throwaway scripts. Prefer this over bash one-liners or temporary files whenever you need to process data, compute aggregates, or run multi-step logic.
 ---
 
 Use Replmux as durable working memory for Python computation: create a named workspace once, then return to it from later turns or other agents.
