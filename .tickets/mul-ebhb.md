@@ -1,6 +1,7 @@
 ---
 id: mul-ebhb
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T04:47:15Z

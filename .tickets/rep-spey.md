@@ -1,6 +1,7 @@
 ---
 id: rep-spey
 status: open
+open: true
 deps: []
 links: []
 created: 2026-07-23T19:01:39Z

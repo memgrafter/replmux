@@ -1,6 +1,7 @@
 ---
 id: rep-7slx
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T18:14:41Z

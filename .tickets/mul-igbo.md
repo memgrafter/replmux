@@ -1,6 +1,7 @@
 ---
 id: mul-igbo
 status: open
+open: true
 deps: []
 links: [rep-ip1m]
 created: 2026-07-20T05:21:38Z

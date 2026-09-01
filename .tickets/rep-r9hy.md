@@ -1,6 +1,7 @@
 ---
 id: rep-r9hy
 status: open
+open: true
 deps: []
 links: [mul-hc2u, rep-sk5z, rep-ao5x]
 created: 2026-07-26T22:13:57Z

@@ -1,6 +1,7 @@
 ---
 id: rep-ccfs
 status: open
+open: true
 deps: [rep-x3ek, rep-sk5z]
 links: []
 created: 2026-07-23T19:01:39Z

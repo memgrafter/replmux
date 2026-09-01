@@ -1,6 +1,7 @@
 ---
 id: mul-c2z5
 status: open
+open: true
 deps: []
 links: []
 created: 2026-07-23T04:28:30Z

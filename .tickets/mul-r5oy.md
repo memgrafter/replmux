@@ -1,6 +1,7 @@
 ---
 id: mul-r5oy
 status: closed
+open: false
 deps: [mul-7jmv]
 links: []
 created: 2026-07-23T03:40:32Z

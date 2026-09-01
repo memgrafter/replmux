@@ -1,6 +1,7 @@
 ---
 id: rep-60zx
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T07:53:52Z

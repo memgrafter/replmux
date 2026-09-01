@@ -1,6 +1,7 @@
 ---
 id: mul-hmnm
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:46:40Z

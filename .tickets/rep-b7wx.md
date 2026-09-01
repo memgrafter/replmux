@@ -1,6 +1,7 @@
 ---
 id: rep-b7wx
 status: in_progress
+open: true
 deps: []
 links: []
 created: 2026-07-23T18:32:01Z

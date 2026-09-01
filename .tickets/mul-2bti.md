@@ -1,6 +1,7 @@
 ---
 id: mul-2bti
 status: in_progress
+open: true
 deps: []
 links: []
 created: 2026-07-23T05:24:45Z

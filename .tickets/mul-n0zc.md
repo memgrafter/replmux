@@ -1,6 +1,7 @@
 ---
 id: mul-n0zc
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:23:30Z

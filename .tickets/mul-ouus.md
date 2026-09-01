@@ -1,6 +1,7 @@
 ---
 id: mul-ouus
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T02:46:20Z

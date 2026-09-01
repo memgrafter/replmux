@@ -1,6 +1,7 @@
 ---
 id: mul-5zgf
 status: open
+open: true
 deps: [mul-r5oy, mul-jcif, mul-yxmc, mul-hfdn, mul-c2z5, mul-a809]
 links: []
 created: 2026-07-23T03:37:52Z

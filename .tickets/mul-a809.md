@@ -1,6 +1,7 @@
 ---
 id: mul-a809
 status: in_progress
+open: true
 deps: []
 links: []
 created: 2026-07-23T04:59:16Z

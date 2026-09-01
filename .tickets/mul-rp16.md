@@ -1,6 +1,7 @@
 ---
 id: mul-rp16
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T05:30:05Z

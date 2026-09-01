@@ -1,6 +1,7 @@
 ---
 id: mul-zuvk
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:22:16Z

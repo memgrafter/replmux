@@ -1,6 +1,7 @@
 ---
 id: rep-wgsu
 status: open
+open: true
 deps: []
 links: []
 created: 2026-07-23T19:40:20Z

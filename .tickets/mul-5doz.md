@@ -1,6 +1,7 @@
 ---
 id: mul-5doz
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T04:41:15Z

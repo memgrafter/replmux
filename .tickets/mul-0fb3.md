@@ -1,6 +1,7 @@
 ---
 id: mul-0fb3
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-20T04:43:54Z

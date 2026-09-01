@@ -1,6 +1,7 @@
 ---
 id: rs-06vr
 status: closed
+open: false
 deps: []
 links: [mul-hfdn]
 created: 2026-07-08T21:16:41Z

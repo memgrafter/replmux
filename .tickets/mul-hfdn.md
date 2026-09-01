@@ -1,6 +1,7 @@
 ---
 id: mul-hfdn
 status: open
+open: true
 deps: []
 links: [rs-06vr]
 created: 2026-07-23T04:28:30Z

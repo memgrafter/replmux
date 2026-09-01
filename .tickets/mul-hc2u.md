@@ -1,6 +1,7 @@
 ---
 id: mul-hc2u
 status: closed
+open: false
 deps: []
 links: [rep-r9hy]
 created: 2026-07-23T04:17:51Z

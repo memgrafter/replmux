@@ -1,6 +1,7 @@
 ---
 id: mul-81cs
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T02:56:55Z

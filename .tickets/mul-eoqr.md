@@ -1,6 +1,7 @@
 ---
 id: mul-eoqr
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:36:13Z

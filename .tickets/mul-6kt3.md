@@ -1,6 +1,7 @@
 ---
 id: mul-6kt3
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:18:27Z

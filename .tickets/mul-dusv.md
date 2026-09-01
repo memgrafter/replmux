@@ -1,6 +1,7 @@
 ---
 id: mul-dusv
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T04:55:53Z

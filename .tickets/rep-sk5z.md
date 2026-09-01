@@ -1,6 +1,7 @@
 ---
 id: rep-sk5z
 status: open
+open: true
 deps: [rep-x3ek]
 links: [rep-r9hy, rep-ao5x]
 created: 2026-07-23T19:01:39Z

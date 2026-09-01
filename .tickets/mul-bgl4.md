@@ -1,6 +1,7 @@
 ---
 id: mul-bgl4
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-20T04:41:43Z

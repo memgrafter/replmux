@@ -1,6 +1,7 @@
 ---
 id: mul-9un5
 status: open
+open: true
 deps: [mul-2bti]
 links: []
 created: 2026-07-23T05:24:45Z

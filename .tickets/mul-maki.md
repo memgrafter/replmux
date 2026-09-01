@@ -1,6 +1,7 @@
 ---
 id: mul-maki
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T05:33:19Z

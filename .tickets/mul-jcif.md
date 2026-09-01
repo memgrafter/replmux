@@ -1,6 +1,7 @@
 ---
 id: mul-jcif
 status: open
+open: true
 deps: [mul-5doz]
 links: []
 created: 2026-07-23T04:28:30Z

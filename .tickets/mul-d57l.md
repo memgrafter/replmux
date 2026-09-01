@@ -1,6 +1,7 @@
 ---
 id: mul-d57l
 status: open
+open: true
 deps: []
 links: []
 created: 2026-07-20T05:21:28Z

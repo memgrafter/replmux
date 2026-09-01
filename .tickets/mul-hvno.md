@@ -1,6 +1,7 @@
 ---
 id: mul-hvno
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-20T05:45:23Z

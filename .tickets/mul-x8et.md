@@ -1,6 +1,7 @@
 ---
 id: mul-x8et
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:20:31Z

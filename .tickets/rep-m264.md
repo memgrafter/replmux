@@ -1,6 +1,7 @@
 ---
 id: rep-m264
 status: in_progress
+open: true
 deps: []
 links: []
 created: 2026-07-23T18:33:31Z

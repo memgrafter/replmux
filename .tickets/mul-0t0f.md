@@ -1,6 +1,7 @@
 ---
 id: mul-0t0f
 status: closed
+open: false
 deps: []
 links: []
 created: 2026-07-23T03:33:38Z
