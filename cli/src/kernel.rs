@@ -4,7 +4,11 @@ use std::io::{Read, Write};
 #[cfg(unix)]
 use std::net::Shutdown;
 #[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -14,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::jupyter::{self, JupyterClient, JupyterMessage};
-use crate::kernelspec;
+use crate::kernelspec::{self, InterruptMode};
 use crate::DEFAULT_OPERATION_TIMEOUT;
 
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
@@ -27,6 +31,22 @@ pub struct KernelManager {
     directory: PathBuf,
     python: PathBuf,
     kernel_script: PathBuf,
+}
+
+/// Delivery is not confirmation that execution stopped or state survived.
+#[derive(Debug, Clone)]
+pub enum InterruptOutcome {
+    SignalSent { pid: u32 },
+    MessageReply { message: JupyterMessage },
+}
+
+// Kept outside the connection document: attaching one must never grant local
+// process ownership. The non-JSON suffix also keeps it out of kernel list.
+#[derive(Deserialize, Serialize)]
+struct InterruptMetadata {
+    mode: InterruptMode,
+    pid: u32,
+    start_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -98,6 +118,7 @@ impl KernelManager {
             ));
         }
 
+        self.clear_interrupt_metadata(name)?;
         let stderr_path = self.stderr_path(name);
         let stderr_file = fs::File::create(&stderr_path).map_err(|error| {
             format!("cannot create {}: {error}", stderr_path.display())
@@ -163,14 +184,18 @@ impl KernelManager {
         let stderr_file = fs::File::create(&stderr_path).map_err(|error| {
             format!("cannot create {}: {error}", stderr_path.display())
         })?;
-        let mut child = match Command::new(&prepared.program)
+        let mut command = Command::new(&prepared.program);
+        command
             .args(&prepared.arguments)
             .envs(&prepared.environment)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::from(stderr_file))
-            .spawn()
-        {
+            .stderr(Stdio::from(stderr_file));
+        // A launcher and its ordinary descendants share our new group, not
+        // the CLI/broker's group. SIGINT can then reach the actual interpreter.
+        #[cfg(unix)]
+        command.process_group(0);
+        let mut child = match command.spawn() {
             Ok(child) => child,
             Err(error) => {
                 let _ = fs::remove_file(&stderr_path);
@@ -181,11 +206,14 @@ impl KernelManager {
             }
         };
         let pid = child.id();
-        if let Err(error) = fs::write(&pid_path, pid.to_string()) {
+        let metadata_result = fs::write(&pid_path, pid.to_string())
+            .map_err(|error| format!("cannot write {}: {error}", pid_path.display()))
+            .and_then(|_| self.write_interrupt_metadata(name, spec.interrupt_mode, pid));
+        if let Err(error) = metadata_result {
             let _ = child.kill();
             let _ = child.wait();
             self.remove_artifacts(name);
-            return Err(format!("cannot write {}: {error}", pid_path.display()));
+            return Err(error);
         }
 
         let deadline = Instant::now() + STARTUP_TIMEOUT;
@@ -229,6 +257,7 @@ impl KernelManager {
         let connection: Value = serde_json::from_str(&contents)
             .map_err(|error| format!("invalid Jupyter connection file: {error}"))?;
         JupyterClient::from_value(&connection)?;
+        self.clear_interrupt_metadata(name)?;
         fs::write(&connection_path, contents)
             .map_err(|error| format!("cannot write {}: {error}", connection_path.display()))
     }
@@ -313,9 +342,36 @@ impl KernelManager {
         client.is_complete(code, EXECUTION_TIMEOUT)
     }
 
-    pub fn interrupt(&self, name: &str) -> Result<JupyterMessage, String> {
-        let mut client = JupyterClient::from_value(&self.connection(name)?)?;
+    pub fn interrupt(&self, name: &str) -> Result<InterruptOutcome, String> {
+        let connection = self.connection(name)?;
+        if connection.get("socket_path").and_then(Value::as_str).is_some() {
+            return Err("the minimal worker does not support non-destructive interruption; use a standard kernelspec or explicitly delete the kernel".to_owned());
+        }
+        let metadata = match fs::read(self.interrupt_path(name)) {
+            Ok(bytes) => Some(
+                serde_json::from_slice::<InterruptMetadata>(&bytes)
+                    .map_err(|error| format!("invalid interrupt metadata for '{name}': {error}"))?,
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(format!("cannot read interrupt metadata for '{name}': {error}")),
+        };
+        if let Some(metadata) = metadata {
+            if metadata.mode == InterruptMode::Signal {
+                if read_pid(&self.pid_path(name))? != Some(metadata.pid) {
+                    return Err(format!("kernel '{name}' has stale process ownership metadata; refusing SIGINT"));
+                }
+                let start_time = metadata.start_time.as_deref().ok_or_else(|| {
+                    "signal interruption is only supported for kernels launched on Linux or macOS".to_owned()
+                })?;
+                interrupt_process_group(metadata.pid, start_time)?;
+                return Ok(InterruptOutcome::SignalSent { pid: metadata.pid });
+            }
+        }
+        // Attached and pre-upgrade kernels have no verified launch ownership.
+        // Retain message-only behavior; never infer a signal target from them.
+        let mut client = JupyterClient::from_value(&connection)?;
         client.interrupt(EXECUTION_TIMEOUT)
+            .map(|message| InterruptOutcome::MessageReply { message })
     }
 
     pub fn heartbeat(&self, name: &str) -> Result<bool, String> {
@@ -357,6 +413,41 @@ impl KernelManager {
         self.directory.join(format!("{name}.pid"))
     }
 
+    fn interrupt_path(&self, name: &str) -> PathBuf {
+        self.directory.join(format!("{name}.interrupt"))
+    }
+
+    fn clear_interrupt_metadata(&self, name: &str) -> Result<(), String> {
+        match fs::remove_file(self.interrupt_path(name)) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!("cannot clear interrupt metadata for '{name}': {error}")),
+        }
+    }
+
+    fn write_interrupt_metadata(&self, name: &str, mode: InterruptMode, pid: u32) -> Result<(), String> {
+        let start_time = if mode == InterruptMode::Signal
+            && cfg!(any(target_os = "linux", target_os = "macos"))
+        {
+            Some(process_start_time(pid)?)
+        } else {
+            None
+        };
+        let payload = serde_json::to_vec(&InterruptMetadata {
+            mode,
+            pid,
+            start_time,
+        }).map_err(|error| error.to_string())?;
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        options
+            .open(self.interrupt_path(name))
+            .and_then(|mut file| file.write_all(&payload))
+            .map_err(|error| format!("cannot write interrupt metadata for '{name}': {error}"))
+    }
+
     fn socket_path(&self, name: &str) -> PathBuf {
         self.directory.join(format!("{name}.sock"))
     }
@@ -367,6 +458,7 @@ impl KernelManager {
             self.pid_path(name),
             self.socket_path(name),
             self.stderr_path(name),
+            self.interrupt_path(name),
         ] {
             let _ = fs::remove_file(path);
         }
@@ -445,6 +537,74 @@ fn read_pid(path: &Path) -> Result<Option<u32>, String> {
         .parse::<u32>()
         .map(Some)
         .map_err(|error| format!("invalid PID file {}: {error}", path.display()))
+}
+
+#[cfg(target_os = "linux")]
+fn process_start_time(pid: u32) -> Result<String, String> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))
+        .map_err(|error| format!("cannot identify kernel process {pid}: {error}"))?;
+    // comm (field 2) can contain spaces and parentheses; parse after its final ')'.
+    let (_, fields) = stat.rsplit_once(") ")
+        .ok_or_else(|| format!("invalid /proc/{pid}/stat"))?;
+    let mut fields = fields.split_whitespace();
+    if matches!(fields.next(), Some("Z" | "X") | None) {
+        return Err(format!("kernel process {pid} has exited"));
+    }
+    // After consuming state (field 3), starttime (field 22) is index 18.
+    let start = fields.nth(18).ok_or_else(|| format!("missing start time for process {pid}"))?;
+    let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map_err(|error| format!("cannot identify current boot: {error}"))?;
+    Ok(format!("{}:{start}", boot.trim()))
+}
+
+#[cfg(target_os = "macos")]
+fn process_start_time(pid: u32) -> Result<String, String> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::uninit();
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid as libc::c_int,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if read != size {
+        return Err(format!("cannot identify kernel process {pid}: {}", std::io::Error::last_os_error()));
+    }
+    // proc_pidinfo initialized the full structure.
+    let info = unsafe { info.assume_init() };
+    if info.pbi_status == libc::SZOMB {
+        return Err(format!("kernel process {pid} has exited"));
+    }
+    Ok(format!("{}:{}", info.pbi_start_tvsec, info.pbi_start_tvusec))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn process_start_time(_pid: u32) -> Result<String, String> {
+    Err("signal interruption is only supported on Linux or macOS".to_owned())
+}
+
+#[cfg(unix)]
+fn interrupt_process_group(pid: u32, expected_start: &str) -> Result<(), String> {
+    if pid <= 1 || pid > i32::MAX as u32 {
+        return Err("invalid kernel PID; refusing SIGINT".to_owned());
+    }
+    if unsafe { libc::getpgid(pid as libc::pid_t) } != pid as libc::pid_t
+        || process_start_time(pid)? != expected_start
+    {
+        return Err(format!("kernel process {pid} no longer matches its launch identity/group; refusing SIGINT"));
+    }
+    if unsafe { libc::kill(-(pid as libc::pid_t), libc::SIGINT) } != 0 {
+        return Err(format!("failed to interrupt kernel process group {pid}: {}", std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn interrupt_process_group(_pid: u32, _expected_start: &str) -> Result<(), String> {
+    Err("signal interruption is only supported on Linux or macOS".to_owned())
 }
 
 #[cfg(unix)]

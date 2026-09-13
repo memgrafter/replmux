@@ -5,6 +5,16 @@
 kernels broaden protocol interoperability coverage when their runtimes are
 available.
 
+## Latest targeted validation
+
+[Wiki-top Elixir and C++ results](../../docs/WIKI_TOP_KERNEL_VALIDATION.md)
+cover IElixir, xeus-cpp, and ROOT. All preserve state, but none passed every
+lifecycle criterion in the tested configurations: busy interruption failed
+through the current Replmux command, and ROOT reported invalid code as success.
+The report includes environment workarounds, pinned image digests, and a
+machine-readable command transcript. IElixir and ROOT are not promoted into
+the automatic matrix on the strength of execution-only results.
+
 ## Finding kernels
 
 There is no fixed exhaustive set: any program implementing the Jupyter messaging

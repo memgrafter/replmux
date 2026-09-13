@@ -393,6 +393,18 @@ fn run_kernel(
                 print_json(&message.content)?;
             }
         }
+        KernelResponse::InterruptSignalSent { pid } => {
+            if json_output {
+                print_json(&json!({
+                    "status": "signal_sent",
+                    "interrupt_mode": "signal",
+                    "process_group": pid,
+                    "cancellation_confirmed": false,
+                }))?;
+            } else {
+                println!("SIGINT sent to kernel process group {pid}; cancellation is not confirmed.");
+            }
+        }
         KernelResponse::Heartbeat { alive } => {
             if json_output {
                 print_json(&json!({"alive": alive}))?;

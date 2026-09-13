@@ -8,6 +8,14 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum InterruptMode {
+    #[default]
+    Signal,
+    Message,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct KernelSpec {
     pub argv: Vec<String>,
@@ -17,6 +25,8 @@ pub struct KernelSpec {
     pub display_name: String,
     #[serde(default)]
     pub language: String,
+    #[serde(default)]
+    pub interrupt_mode: InterruptMode,
 }
 
 #[derive(Debug, Clone)]
@@ -179,6 +189,7 @@ mod tests {
             env: BTreeMap::new(),
             display_name: "Python".to_owned(),
             language: "python".to_owned(),
+            interrupt_mode: InterruptMode::default(),
         };
         let prepared = prepare(&spec, Path::new("/tmp/kernel.json")).unwrap();
         assert_eq!(prepared.program, "python3");

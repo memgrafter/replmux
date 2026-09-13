@@ -25,7 +25,6 @@ replmux kernel complete analysis 'value.bi'
 replmux kernel inspect analysis 'value.bit_length'
 replmux kernel is-complete analysis 'for item in values:'
 replmux kernel heartbeat analysis
-replmux kernel interrupt analysis
 replmux kernel delete analysis
 ```
 
@@ -35,7 +34,32 @@ Launch any installed Jupyter kernelspec or attach an existing connection file:
 replmux kernel create science --kernelspec python3
 replmux kernel create algebra --kernelspec /path/to/sage/kernel.json
 replmux kernel attach existing /path/to/kernel-connection.json
+replmux kernel interrupt science
 ```
+
+### Interruption
+
+Newly launched standard kernels honor kernelspec `interrupt_mode`: `signal`
+(the Jupyter default) sends SIGINT to a dedicated process group on Linux/macOS;
+`message` sends a control-channel `interrupt_request`. Launch mode and process
+identity are stored in a private `.interrupt` sidecar, not the Jupyter connection
+file. Signal delivery checks the recorded PID, start time, and process group;
+a missing/exited launcher or stale identity is an error, not a guessed target.
+Launchers that detach their interpreter into another process group are not
+supported by this signal path.
+
+Signal responses report `status: "signal_sent"` and
+`cancellation_confirmed: false`. A message-mode reply also only acknowledges the
+request: neither proves that computation stopped or that state survived. Kernel
+behavior determines whether SIGINT preserves state. There is no automatic
+escalation to termination; use `kernel delete` explicitly to discard the kernel.
+
+Existing kernels created before this change and attached connection files retain
+message-only interruption; their PIDs are never used for SIGINT. Recreate a
+managed standard kernel to enable its kernelspec mode. Restart an existing
+broker to use the updated implementation. The custom minimal Python worker does
+not support non-destructive interruption and now returns an explicit error.
+An execution timeout or disconnected client does not cancel kernel computation.
 
 Kernelspec discovery follows `JUPYTER_PATH`, macOS and user data directories, then system Jupyter data directories. Standard kernels execute through their signed Jupyter ZMQ channels; Replmux's custom worker retains its direct Unix socket as a local optimization. The [Jupyter community list](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels) is the broad discovery catalog; see [`docs/AGENT_KERNEL_CATALOG.md`](../docs/AGENT_KERNEL_CATALOG.md) for agent-oriented recommendations and licensing and isolation constraints.
 

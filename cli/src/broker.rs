@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::jupyter::JupyterMessage;
-use crate::kernel::{KernelManager, KernelStatus, ReplResponse};
+use crate::kernel::{InterruptOutcome, KernelManager, KernelStatus, ReplResponse};
 use crate::DEFAULT_OPERATION_TIMEOUT;
 
 const IO_TIMEOUT: Duration = DEFAULT_OPERATION_TIMEOUT;
@@ -105,6 +105,7 @@ pub enum KernelResponse {
     Deleted { name: String },
     Executed { response: ReplResponse },
     JupyterReply { message: JupyterMessage },
+    InterruptSignalSent { pid: u32 },
     Heartbeat { alive: bool },
 }
 
@@ -237,7 +238,10 @@ fn handle_request(request: KernelRequest) -> Result<KernelResponse, String> {
             .map(|message| KernelResponse::JupyterReply { message }),
         KernelOperation::Interrupt { name } => manager
             .interrupt(&name)
-            .map(|message| KernelResponse::JupyterReply { message }),
+            .map(|outcome| match outcome {
+                InterruptOutcome::SignalSent { pid } => KernelResponse::InterruptSignalSent { pid },
+                InterruptOutcome::MessageReply { message } => KernelResponse::JupyterReply { message },
+            }),
         KernelOperation::Heartbeat { name } => manager
             .heartbeat(&name)
             .map(|alive| KernelResponse::Heartbeat { alive }),

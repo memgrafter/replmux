@@ -7,6 +7,201 @@ import { Text } from "@earendil-works/pi-tui";
 import type { Component } from "@earendil-works/pi-tui";
 import { Type, Static } from "typebox";
 
+// BEGIN STANDALONE TRANSPORT
+// Keep transport inline: this extension is deployed as a single copied/symlinked file.
+export const REQUEST_TIMEOUT_MS = 300_000;
+const INTERRUPT_TIMEOUT_MS = 1_000;
+
+type Json = Record<string, any>;
+type CliResult = { stdout: string; stderr: string; code: number; killed?: boolean };
+export type ExecCli = (args: string[], options: { signal?: AbortSignal; timeout: number }) => Promise<CliResult>;
+
+class BrokerUnavailableError extends Error {}
+class RequestAbortedError extends Error {
+	constructor() {
+		super("REPL request aborted");
+		this.name = "AbortError";
+	}
+}
+
+/** Disconnecting cancels only this wait, not code already submitted to a kernel. */
+export function sendJson(
+	socketPath: string,
+	payload: unknown,
+	options: { signal?: AbortSignal; timeout?: number; onDispatch?: () => void } = {},
+): Promise<Json> {
+	return new Promise((resolve, reject) => {
+		const { signal } = options;
+		if (signal?.aborted) return reject(new RequestAbortedError());
+		const sock = new net.Socket();
+		const chunks: Buffer[] = [];
+		let settled = false;
+		const finish = (error?: Error, result?: Json) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			signal?.removeEventListener("abort", abort);
+			sock.destroy();
+			if (error) reject(error);
+			else resolve(result!);
+		};
+		const abort = () => finish(new RequestAbortedError());
+		const timeout = setTimeout(() => finish(new Error(`Unix socket request timed out: ${socketPath}`)),
+			options.timeout ?? REQUEST_TIMEOUT_MS);
+		signal?.addEventListener("abort", abort, { once: true });
+		sock.on("error", (error) => finish(error));
+		sock.on("data", (chunk: Buffer) => chunks.push(chunk));
+		sock.on("end", () => {
+			const body = Buffer.concat(chunks).toString();
+			try {
+				finish(undefined, JSON.parse(body));
+			} catch {
+				finish(new Error(`Invalid JSON from ${socketPath}: ${body.slice(0, 200)}`));
+			}
+		});
+		sock.on("close", () => finish(new Error(`Unix socket closed before a response: ${socketPath}`)));
+		try {
+			sock.connect(socketPath, () => {
+				if (settled) return;
+				try {
+					const body = JSON.stringify(payload);
+					options.onDispatch?.();
+					sock.end(body);
+				} catch (error) {
+					finish(error instanceof Error ? error : new Error(String(error)));
+				}
+			});
+		} catch (error) {
+			finish(error instanceof Error ? error : new Error(String(error)));
+		}
+	});
+}
+
+function brokerPayload(operation: Json): Json {
+	return { operation, kernel_dir: null, python: null, kernel_script: null };
+}
+
+async function brokerRequest(socketPath: string, operation: Json, options: Parameters<typeof sendJson>[2]): Promise<Json> {
+	let wire: Json;
+	try {
+		wire = await sendJson(socketPath, brokerPayload(operation), options);
+	} catch (error: any) {
+		if (error?.code === "ENOENT" || error?.code === "ECONNREFUSED") throw new BrokerUnavailableError();
+		throw error;
+	}
+	if (!wire?.ok) throw new Error(wire?.error || "Replmux broker request failed");
+	return wire.response;
+}
+
+function executeCli(execCli: ExecCli, args: string[], signal?: AbortSignal): Promise<CliResult> {
+	return new Promise((resolve, reject) => {
+		if (signal?.aborted) return reject(new RequestAbortedError());
+		let settled = false;
+		const finish = (error?: unknown, result?: CliResult) => {
+			if (settled) return;
+			settled = true;
+			signal?.removeEventListener("abort", abort);
+			if (error) reject(error);
+			else resolve(result!);
+		};
+		const abort = () => finish(new RequestAbortedError());
+		signal?.addEventListener("abort", abort, { once: true });
+		// Do not wait for a slow client process to exit before attempting interruption.
+		try {
+			execCli(args, { signal, timeout: REQUEST_TIMEOUT_MS }).then(
+				(result) => finish(undefined, result), (error) => finish(error),
+			);
+		} catch (error) {
+			finish(error);
+		}
+	});
+}
+
+function parseCli(result: CliResult): Json {
+	if (result.killed || result.code !== 0) {
+		throw new Error(result.stderr.trim() || result.stdout.trim() || "Replmux CLI stopped without a successful response");
+	}
+	return JSON.parse(result.stdout);
+}
+
+/** A separate deadline, never the already-aborted execution signal. */
+async function interruptCli(execCli: ExecCli, name: string): Promise<Json> {
+	const controller = new AbortController();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			execCli(["--transport", "local", "--json", "kernel", "interrupt", name], {
+				signal: controller.signal, timeout: INTERRUPT_TIMEOUT_MS,
+			}).then(parseCli),
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => {
+					reject(new Error("Kernel interrupt request timed out"));
+					controller.abort();
+				}, INTERRUPT_TIMEOUT_MS);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+export async function executeRepl(options: {
+	name: string;
+	code: string;
+	signal?: AbortSignal;
+	brokerSocket?: string;
+	getKernelSocket: () => string | null;
+	execCli: ExecCli;
+}): Promise<{ result: Json; transport: string }> {
+	const { name, code, signal, brokerSocket, getKernelSocket, execCli } = options;
+	if (signal?.aborted) throw new Error("REPL wait aborted before submission; no code sent.");
+	let transport = brokerSocket ? "broker" : "kernel";
+	let dispatched = false;
+	const requestOptions = { signal, onDispatch: () => { dispatched = true; } };
+	try {
+		if (brokerSocket) {
+			try {
+				const response = await brokerRequest(brokerSocket, { action: "exec", name, code }, requestOptions);
+				if (response?.type !== "executed" || !response.response) throw new Error("Invalid broker execution response");
+				return { result: response.response, transport };
+			} catch (error) {
+				// Never retry execution that might already have reached the kernel.
+				if (signal?.aborted || dispatched || !(error instanceof BrokerUnavailableError)) throw error;
+			}
+		}
+		const socketPath = getKernelSocket();
+		transport = socketPath ? "kernel" : "cli-jupyter";
+		if (signal?.aborted) throw new RequestAbortedError();
+		if (socketPath) return { result: await sendJson(socketPath, { code }, requestOptions), transport };
+		dispatched = true;
+		const result = await executeCli(execCli, ["--transport", "local", "--json", "kernel", "exec", name, code], signal);
+		if (signal?.aborted) throw new RequestAbortedError();
+		return { result: parseCli(result), transport };
+	} catch (error) {
+		if (!signal?.aborted) throw error;
+		if (!dispatched) throw new Error("REPL wait aborted before submission; no code sent.");
+		// Older minimal workers falsely acknowledge interruption. Never use that ack
+		// as evidence, or send SIGINT (which shuts them down).
+		if (transport === "kernel" || getKernelSocket()) {
+			throw new Error("REPL wait aborted. Minimal-worker interruption is unsupported; code may still be running. Use a standard kernelspec for interruptible execution.");
+		}
+		let delivery: string;
+		try {
+			const reply = transport === "broker"
+				? await brokerRequest(brokerSocket!, { action: "interrupt", name }, { timeout: INTERRUPT_TIMEOUT_MS })
+				: await interruptCli(execCli, name);
+			const signalSent = reply?.type === "interrupt_signal_sent" || reply?.status === "signal_sent";
+			const message = reply?.type === "jupyter_reply" ? reply.message : reply;
+			const acknowledged = message?.header?.msg_type === "interrupt_reply" && message?.content?.status === "ok";
+			delivery = signalSent ? "SIGINT sent" : acknowledged ? "interrupt acknowledged" : "interrupt response unrecognized";
+		} catch (interruptError) {
+			throw new Error(`REPL wait aborted; kernel interrupt failed: ${interruptError instanceof Error ? interruptError.message : String(interruptError)}. Code may still be running.`);
+		}
+		throw new Error(`REPL wait aborted; ${delivery}. Cancellation and retained state are unconfirmed; code may still be running.`);
+	}
+}
+// END STANDALONE TRANSPORT
+
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
 const replSchema = Type.Object({
@@ -22,6 +217,7 @@ const replManageSchema = Type.Object({
 		Type.Literal("connect"),
 	]),
 	name: Type.Optional(Type.String({ description: "[optional] Kernel name. Auto-generated on create if omitted." })),
+	kernelspec: Type.Optional(Type.String({ description: "For create: installed kernelspec name or kernel.json path. Use an ipykernel spec for interruptible Python; the default minimal worker cannot cancel code non-destructively." })),
 	binary: Type.Optional(Type.String({ description: "[optional] Path to the Rust replmux binary" })),
 });
 
@@ -33,7 +229,6 @@ const DEFAULT_BINARY = process.env.REPLMUX_BINARY ?? (
 		: "~/.local/bin/replmux"
 );
 const DEFAULT_BROKER_SOCKET = process.env.REPLMUX_BROKER_SOCKET ?? "~/.replmux/b.sock";
-const REQUEST_TIMEOUT_MS = 300_000;
 
 function resolvePath(p: string): string {
 	return p.replace(/^~/, process.env.HOME ?? "");
@@ -53,12 +248,17 @@ async function runCli(
 	name: string | undefined,
 	binaryPath: string,
 	signal: AbortSignal | undefined,
+	kernelspec?: string,
 ): Promise<{ stdout: string; stderr: string }> {
-	const args = [action];
+	if (signal?.aborted) throw new Error("Replmux management request aborted before submission.");
+	if (kernelspec && action !== "create") throw new Error("kernelspec is only supported for create");
+	const args = ["kernel", action];
 	if (name) args.push(name);
+	if (kernelspec) args.push("--kernelspec", kernelspec);
 	const result = await pi.exec(resolvePath(binaryPath), args, { signal, timeout: REQUEST_TIMEOUT_MS });
 	const stdout = result.stdout.trim();
 	const stderr = result.stderr.trim();
+	if (signal?.aborted || result.killed) throw new Error("Replmux management request aborted; lifecycle outcome is unconfirmed.");
 	if (result.code !== 0) {
 		throw new Error(stderr || stdout || `replmux exited with code ${result.code}`);
 	}
@@ -66,95 +266,13 @@ async function runCli(
 }
 
 function getSocketPath(kernelName: string): string | null {
-	const connPath = `${process.env.HOME}/.jupyter-repl/kernels/${kernelName}.json`;
+	const kernelDir = resolvePath(process.env.REPLMUX_KERNEL_DIR ?? "~/.jupyter-repl/kernels");
+	const connPath = `${kernelDir}/${kernelName}.json`;
 	try {
 		const conn = JSON.parse(fs.readFileSync(connPath, "utf8"));
-		return conn.socket_path ?? null;
+		return typeof conn.socket_path === "string" && conn.socket_path ? conn.socket_path : null;
 	} catch {
 		return null;
-	}
-}
-
-class BrokerUnavailableError extends Error {}
-
-function sendJson(socketPath: string, payload: unknown): Promise<Record<string, any>> {
-	return new Promise((resolve, reject) => {
-		const sock = new net.Socket();
-		const chunks: Buffer[] = [];
-		const timeout = setTimeout(() => {
-			sock.destroy();
-			reject(new Error(`Unix socket request timed out: ${socketPath}`));
-		}, REQUEST_TIMEOUT_MS);
-
-		const finish = (callback: () => void) => {
-			clearTimeout(timeout);
-			callback();
-		};
-		sock.on("error", (error) => finish(() => reject(error)));
-		sock.on("data", (chunk: Buffer) => chunks.push(chunk));
-		sock.on("end", () => finish(() => {
-			const body = Buffer.concat(chunks).toString();
-			try {
-				resolve(JSON.parse(body));
-			} catch {
-				reject(new Error(`Invalid JSON from ${socketPath}: ${body.slice(0, 200)}`));
-			}
-		}));
-		sock.connect(socketPath, () => {
-			sock.end(JSON.stringify(payload));
-		});
-	});
-}
-
-function sendToKernel(socketPath: string, code: string): Promise<Record<string, any>> {
-	return sendJson(socketPath, { code });
-}
-
-async function sendToBroker(kernelName: string, code: string): Promise<Record<string, any>> {
-	if (process.platform === "win32") {
-		throw new BrokerUnavailableError();
-	}
-	const socketPath = resolvePath(DEFAULT_BROKER_SOCKET);
-	let wireResponse: Record<string, any>;
-	try {
-		wireResponse = await sendJson(socketPath, {
-			operation: { action: "exec", name: kernelName, code },
-			kernel_dir: null,
-			python: null,
-			kernel_script: null,
-		});
-	} catch (error: any) {
-		if (error?.code === "ENOENT" || error?.code === "ECONNREFUSED") {
-			throw new BrokerUnavailableError();
-		}
-		throw error;
-	}
-	if (!wireResponse.ok) {
-		throw new Error(wireResponse.error || "Replmux broker request failed");
-	}
-	if (wireResponse.response?.type !== "executed" || !wireResponse.response.response) {
-		throw new Error("Replmux broker returned an invalid execution response");
-	}
-	return wireResponse.response.response;
-}
-
-async function executeViaCli(
-	pi: ExtensionAPI,
-	kernelName: string,
-	code: string,
-	signal: AbortSignal | undefined,
-): Promise<Record<string, any>> {
-	const result = await pi.exec(resolvePath(DEFAULT_BINARY), ["--json", "exec", kernelName, code], {
-		signal,
-		timeout: REQUEST_TIMEOUT_MS,
-	});
-	if (result.code !== 0) {
-		throw new Error(result.stderr.trim() || result.stdout.trim() || `replmux exited with code ${result.code}`);
-	}
-	try {
-		return JSON.parse(result.stdout);
-	} catch {
-		throw new Error(`Invalid JSON from replmux: ${result.stdout.slice(0, 200)}`);
 	}
 }
 
@@ -191,21 +309,14 @@ function createReplTool(pi: ExtensionAPI): ToolDefinition {
 		const target = params.name;
 		try {
 			_onUpdate?.({ content: [{ type: "text", text: `repl: ${target}` }] });
-			let transport = "broker";
-			let result: Record<string, any>;
-			try {
-				result = await sendToBroker(target, params.code);
-			} catch (error) {
-				if (!(error instanceof BrokerUnavailableError)) throw error;
-				transport = "kernel";
-				const socketPath = getSocketPath(target);
-				if (socketPath) {
-					result = await sendToKernel(socketPath, params.code);
-				} else {
-					transport = "cli-jupyter";
-					result = await executeViaCli(pi, target, params.code, signal);
-				}
-			}
+			const { result, transport } = await executeRepl({
+				name: target,
+				code: params.code,
+				signal,
+				brokerSocket: process.platform === "win32" ? undefined : resolvePath(DEFAULT_BROKER_SOCKET),
+				getKernelSocket: () => getSocketPath(target),
+				execCli: (args, options) => pi.exec(resolvePath(DEFAULT_BINARY), args, options),
+			});
 			let resultText = "";
 			if (!result.ok) {
 				resultText = `  ✗ ${result.error}`;
@@ -218,8 +329,9 @@ function createReplTool(pi: ExtensionAPI): ToolDefinition {
 				content: [{ type: "text", text: resultText || "(ok)" }],
 				details: { ...result, transport },
 			};
-		} catch (err: any) {
-			return { content: [{ type: "text", text: err.message }], details: undefined, isError: true };
+		} catch (err: unknown) {
+			// Pi marks thrown tool errors as failures; a returned isError is ignored.
+			throw err instanceof Error ? err : new Error(String(err));
 		}
 	},
 	};
@@ -242,7 +354,7 @@ function createReplManageTool(pi: ExtensionAPI): ToolDefinition {
 		const binaryPath = params.binary ?? DEFAULT_BINARY;
 		const name = params.name ?? (params.action === "create" ? generateKernelName() : undefined);
 		try {
-			const { stdout, stderr } = await runCli(pi, params.action, name, binaryPath, signal);
+			const { stdout, stderr } = await runCli(pi, params.action, name, binaryPath, signal, params.kernelspec);
 			const text = stderr ? `${stdout}\nstderr: ${stderr}` : stdout;
 			return { content: [{ type: "text", text }], details: stdout };
 		} catch (err: unknown) {
