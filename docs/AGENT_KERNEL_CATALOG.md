@@ -6,11 +6,30 @@ maintained, experimental, deprecated, hardware-bound, service-backed, and
 commercial kernels, so inclusion there does not imply that a kernel is suitable
 for unattended agents or supported by Replmux.
 
-Replmux's executable compatibility matrix remains
-[`tests/jupyter-kernels/kernels.toml`](../tests/jupyter-kernels/kernels.toml).
-This document is the candidate backlog and selection policy. See the
+Replmux's interoperability catalog is
+[`tests/jupyter-kernels/kernels.toml`](../tests/jupyter-kernels/kernels.toml):
+fourteen executable-matrix entries and two additional manual validations.
+This document records validated choices, the candidate backlog, and selection
+policy. See the
 [blocked-kernel deployment workup](BLOCKED_KERNEL_DEPLOYMENT.md) for observed
 failures and Linux, VM, and alternate-OS projections.
+
+## Additional manual validation: Elixir and C++
+
+The [wiki-top validation report](WIKI_TOP_KERNEL_VALIDATION.md) covers three
+implementations; xeus-cpp was already in the executable matrix, so these results
+add two distinct kernels, not three, to the catalog.
+
+| Kernel / tested runtime | Agent use | Validation and limits |
+|---|---|---|
+| **C++ / xeus-cpp 0.10.0** | General native API and compiler experiments | macOS arm64; persistence and error recovery passed. Later SIGINT exited the process and lost state; the waiting client did not promptly detect death. |
+| **Elixir / IElixir, Elixir 1.11.2 / OTP 23** | Bounded functional-language and BEAM experiments | Pinned Linux amd64 Docker image; persistence, error-recovery state reads, and lifecycle cleanup passed. Poor error summaries, inspection timeout, and unsuccessful control-message interruption. |
+| **C++ / ROOT 6.38.00 (JupyROOT)** | Workflows requiring ROOT scientific libraries | Linux amd64 Docker image with added Python wheels; persistence and lifecycle cleanup passed. Invalid code can report `ok:true`, cold startup timed out, and control-message interruption failed. |
+
+IElixir and ROOT are `manual_validations`, not installer recipes. Their images
+were removed after testing; recreating the documented environments is required.
+Neither has been retested with the newer signal-mode interruption implementation.
+Do not interpret manual validation as an unconditional full-protocol pass.
 
 ## What makes a kernel useful to agents
 

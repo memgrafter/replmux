@@ -1,4 +1,6 @@
-# Canonical interoperability test matrix.
+# Canonical interoperability catalog: fourteen executable [[kernels]] entries
+# and two additional [[manual_validations]] with known limitations.
+# The installer reads only [[kernels]]; manual records are not install recipes.
 # `kernelspec` is the commonly used name; installations may register another
 # name. Use `jupyter kernelspec list --json` to discover local names.
 
@@ -44,7 +46,8 @@ packages = ["r-irkernel"]
 
 [[kernels]]
 # Retain the legacy ID so existing environment directories remain usable.
-# Busy interruption caveat: docs/WIKI_TOP_KERNEL_VALIDATION.md.
+# Tested xeus-cpp 0.10.0 exits on SIGINT and loses state; the waiting execution
+# client did not promptly detect kernel death. See docs/WIKI_TOP_KERNEL_VALIDATION.md.
 id = "cpp-xeus-cling"
 display_name = "C++ (xeus-cpp)"
 language = "c++"
@@ -187,3 +190,39 @@ project_url = "https://github.com/jupyter-xeus/xeus-sql"
 [kernels.micromamba]
 channels = ["conda-forge"]
 packages = ["xeus-sql"]
+
+# Manually exercised in pinned containers; not promoted to the executable matrix.
+[[manual_validations]]
+id = "elixir-ielixir"
+display_name = "Elixir (IElixir)"
+language = "elixir"
+kernelspec = "ielixir"
+project_url = "https://github.com/pprzetacznik/IElixir"
+validation = "manual-with-limitations"
+validated_on = "2026-09-13"
+runtime_version = "Elixir 1.11.2 / Erlang OTP 23"
+environment = "Prebuilt Linux amd64 Docker image on an aarch64 engine; image removed after validation"
+evidence = "docs/WIKI_TOP_KERNEL_VALIDATION.md"
+limitations = [
+  "Requires pinned-image launcher and permissions workarounds; no automatic install recipe",
+  "Poor error summaries, empty completion, and inspection timeout",
+  "Control-message interruption failed; new signal-mode implementation not retested",
+]
+
+[[manual_validations]]
+id = "cpp-root"
+display_name = "C++ (ROOT / JupyROOT)"
+language = "c++"
+kernelspec = "root"
+project_url = "https://root.cern/install/"
+validation = "manual-with-limitations"
+validated_on = "2026-09-13"
+runtime_version = "ROOT 6.38.00"
+environment = "Prebuilt Linux amd64 Docker image plus Python wheels on an aarch64 engine; image removed after validation"
+evidence = "docs/WIKI_TOP_KERNEL_VALIDATION.md"
+limitations = [
+  "Image required additional Jupyter Python dependencies; no automatic install recipe",
+  "Invalid code and runtime exceptions incorrectly reported as ok:true",
+  "Cold startup exceeded five seconds; inspection aborted",
+  "Control-message interruption failed; new signal-mode implementation not retested",
+]

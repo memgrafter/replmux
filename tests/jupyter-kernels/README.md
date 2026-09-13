@@ -1,19 +1,29 @@
 # Kernel interoperability tests
 
-[`kernels.toml`](kernels.toml) is the authoritative kernel test matrix. The
-`required` tier is expected in the standard test environment; `optional`
-kernels broaden protocol interoperability coverage when their runtimes are
-available.
+[`kernels.toml`](kernels.toml) is the authoritative interoperability catalog:
+fourteen executable `[[kernels]]` entries plus two `[[manual_validations]]`
+(IElixir and ROOT). The installer reads only `[[kernels]]`. Its `required` tier
+is expected in the standard test environment; `optional` kernels broaden
+protocol interoperability coverage when their runtimes are available.
 
 ## Latest targeted validation
 
 [Wiki-top Elixir and C++ results](../../docs/WIKI_TOP_KERNEL_VALIDATION.md)
-cover IElixir, xeus-cpp, and ROOT. All preserve state, but none passed every
-lifecycle criterion in the tested configurations: busy interruption failed
-through the current Replmux command, and ROOT reported invalid code as success.
-The report includes environment workarounds, pinned image digests, and a
-machine-readable command transcript. IElixir and ROOT are not promoted into
-the automatic matrix on the strength of execution-only results.
+cover IElixir, xeus-cpp, and ROOT. All passed cross-call state, text output,
+error-recovery state reads, and create/delete/recreate checks, but none passed
+every protocol criterion in those configurations.
+
+| Kernel | Catalog placement | Known limitations |
+|---|---|---|
+| xeus-cpp 0.10.0 | Existing executable entry, legacy ID `cpp-xeus-cling` | Original control-message interruption failed; later SIGINT killed the kernel and lost state. |
+| IElixir / Elixir 1.11.2, OTP 23 | Manual entry `elixir-ielixir` | Pinned Docker setup, poor error summaries, inspection timeout, and failed control-message interruption. |
+| ROOT 6.38.00 / JupyROOT | Manual entry `cpp-root` | Docker plus Python dependencies; invalid code reports `ok:true`, cold startup timed out, and control-message interruption failed. |
+
+IElixir and ROOT have not been retested with the newer signal-mode implementation.
+The report includes setup workarounds, pinned images, and references to local,
+gitignored command transcripts. The Docker test images were removed afterward.
+Manual entries are discoverable validation records, not automatic installation
+recipes or unconditional lifecycle passes.
 
 ## Finding kernels
 

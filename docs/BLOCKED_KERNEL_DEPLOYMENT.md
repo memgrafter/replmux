@@ -2,8 +2,14 @@
 
 This report covers every kernel rejected or deferred during the macOS arm64
 compatibility work. The observed machine was Apple Silicon running macOS; the
-passing baseline is the fourteen entries in
+original lifecycle baseline is the fourteen executable entries in
 [`tests/jupyter-kernels/kernels.toml`](../tests/jupyter-kernels/kernels.toml).
+The catalog now also records **IElixir** and **ROOT / JupyROOT** as manual Docker
+validations with limitations, not automatic-matrix passes. See the
+[wiki-top report](WIKI_TOP_KERNEL_VALIDATION.md): ROOT can report invalid code as
+successful, both manual entries failed control-message interruption, and the
+later xeus-cpp SIGINT test exited the kernel and lost state. The original baseline
+label does not guarantee cancellation or every protocol feature.
 
 ## Executive recommendation
 

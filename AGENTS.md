@@ -37,12 +37,15 @@ collaboration.
 
 ## Ready kernel choices
 
-Choose the narrowest capable kernel instead of assuming Python:
+Choose the narrowest capable kernel instead of assuming Python. The first
+fourteen entries are in the executable matrix; the last two are manually
+validated with limitations:
 
 1. Python — automation, data, libraries, and general analysis.
 2. Julia — numerical science, optimization, and high-performance arrays.
 3. R — statistics, models, and statistical graphics.
-4. C++ — native APIs, compiler behavior, and performance prototypes.
+4. C++ (xeus-cpp) — native APIs, compiler behavior, and performance prototypes;
+   tested 0.10.0 exits on SIGINT, losing state.
 5. JavaScript — JSON, web logic, Node APIs, and async experiments.
 6. C# — .NET APIs, LINQ, and typed application logic.
 7. SageMath — exact symbolic algebra, number theory, and combinatorics.
@@ -54,7 +57,17 @@ Choose the narrowest capable kernel instead of assuming Python:
 13. xeus-python — native-protocol Python compatibility and alternate behavior.
 14. xeus-sql — stateful SQL across SQLite and configured database backends.
 
-These are lifecycle-tested entries in `tests/jupyter-kernels/kernels.toml`.
+15. Elixir (IElixir) — bounded functional-language and BEAM experiments;
+    manually validated in a pinned Docker image, with poor error summaries and
+    unsuccessful control-message interruption.
+16. C++ (ROOT / JupyROOT) — ROOT scientific-library workflows; manually validated
+    in Docker, but invalid code can report `ok:true` and cold startup timed out.
+
+`tests/jupyter-kernels/kernels.toml` separates the fourteen `kernels` from two
+`manual_validations`; manual entries are not automatically provisioned.
+Validation is not a guarantee of cancellation or all protocol features. See
+[`docs/WIKI_TOP_KERNEL_VALIDATION.md`](docs/WIKI_TOP_KERNEL_VALIDATION.md) for
+versions, setup, and limitations. The Docker test images were removed afterward.
 Discover the installed kernelspec name before launch; names can vary by version.
 
 Deeper operational details live in [`cli/README.md`](cli/README.md); kernel

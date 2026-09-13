@@ -125,14 +125,16 @@ noninteractive installation, and automation-compatible licensing.
 
 ## Ready kernels and use cases
 
-The compatibility matrix currently contains fourteen lifecycle-tested choices:
+The catalog covers sixteen kernel implementations: fourteen executable-matrix
+entries plus IElixir and ROOT, manually validated with limitations. Validation
+does not imply successful interruption or support for every protocol feature.
 
 | Kernel | Reach for it when the task involves |
 |---|---|
 | **Python / ipykernel** | General automation, filesystem and text processing, dataframes, machine learning, visualization, or the broad Python package ecosystem. |
 | **Julia / IJulia** | Numerical simulation, optimization, differential equations, scientific packages, multiple dispatch, or array code that should remain close to mathematical notation. |
 | **R / IRkernel** | Statistical inference, regression and experimental models, epidemiology, tidy data, or publication-oriented statistical graphics. |
-| **C++ / xeus-cpp** | Native library exploration, templates, compiler diagnostics, memory-layout questions, performance prototypes, or reproducing C++ API behavior incrementally. |
+| **C++ / xeus-cpp** | Native library exploration, templates, compiler diagnostics, memory-layout questions, performance prototypes, or reproducing C++ API behavior incrementally. **Tested 0.10.0 exits on SIGINT and loses state.** |
 | **JavaScript / IJavascript** | JSON transformations, Node APIs, promises and async behavior, web algorithms, regular expressions, or testing JavaScript semantics without creating a project. |
 | **C# / .NET Interactive** | LINQ queries, .NET APIs, typed domain models, async C#, collection transformations, or experiments intended for an existing .NET codebase. |
 | **SageMath** | Exact arithmetic, symbolic algebra, polynomial rings, number theory, combinatorics, graph theory, or cross-checking results through its integrated mathematical systems. |
@@ -143,6 +145,14 @@ The compatibility matrix currently contains fourteen lifecycle-tested choices:
 | **R / xeus-r** | Native xeus protocol behavior, an alternative R execution engine, or cross-checking IRkernel-specific behavior while retaining normal statistical use cases. |
 | **Python / xeus-python** | Native xeus protocol coverage, comparing kernel implementations, or reproducing behavior in deployments that use xeus-python rather than ipykernel. |
 | **SQL / xeus-sql** | Reusing SQL across SQLite and configured PostgreSQL, MySQL, or other SOCI-backed databases; connection behavior and credentials require explicit handling. |
+| **Elixir / IElixir — manual validation** | Bounded functional-language and BEAM experiments. Persistent state passed in the pinned Elixir 1.11.2 / OTP 23 Docker image; error summaries are poor, inspection timed out, and control-message interruption failed. |
+| **C++ / ROOT (JupyROOT) — manual validation** | Workflows requiring ROOT scientific libraries. Persistent state passed with ROOT 6.38.00 in Docker; invalid code can return `ok:true`, cold startup timed out, and control-message interruption failed. |
+
+Manual entries are recorded separately from the installer matrix; they are not
+turnkey local installations. The tested Docker images were removed afterward.
+See [wiki-top validation](docs/WIKI_TOP_KERNEL_VALIDATION.md) for pinned images,
+setup workarounds, and limitations. IElixir and ROOT have not been retested with
+the newer signal-mode interruption implementation.
 
 Use Python when no specialized kernel materially improves the work. Prefer
 SageMath over floating-point Python for exact mathematics, R over hand-built
