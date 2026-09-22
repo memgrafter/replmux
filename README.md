@@ -13,6 +13,24 @@ replmux kernel exec analysis 'sum(values)'
 # 16
 ```
 
+## Claude Code
+
+One command gives every Claude Code session on the machine two tools, `repl` and
+`repl-manage`, backed by the same kernels as the command line:
+
+```sh
+claude mcp add --scope user replmux -- replmux mcp   # once; then start a new session
+claude mcp list                                      # should show "replmux ... Connected"
+```
+
+In a session, ask Claude to create a workspace (`repl-manage` with action `create`), run code in
+it (`repl` with the workspace name and the code), and delete it when the task is done. State
+stays between calls, so data is loaded once and reused. Three things to know: a value is shown
+only when a call is a single expression, otherwise print it; returned values are never
+truncated, so keep them small; and a call that never ends (an endless loop) cannot be
+interrupted in the default worker and blocks every other call until that workspace is deleted.
+A full test record with these findings is in `.tickets/rep-icbz.md`.
+
 Replmux speaks the standard Jupyter protocol. The same lifecycle works with
 installed kernels for Julia, R, C++, JavaScript, .NET, and domain systems such
 as SageMath—not only Python. Its bundled minimal Python worker adds a fast local
@@ -34,12 +52,6 @@ SIGINT. Validation does not imply that every protocol feature passes.
 Replmux is intentionally a runtime primitive, not a sandbox or durable database.
 Kernel state disappears when its process dies, and executing code grants that
 kernel the user's local permissions.
-
-Claude Code can load the `repl` and `repl-manage` tools directly:
-
-```sh
-claude mcp add --scope user replmux -- replmux mcp
-```
 
 - [Agent usage](SKILL.md)
 - [CLI and installation](cli/README.md)

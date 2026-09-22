@@ -4,6 +4,16 @@ Replmux gives agents named, persistent Jupyter workspaces. Preserve state across
 calls; use separate names for isolation and shared names for deliberate
 collaboration.
 
+## Claude Code, cut to the chase
+
+- Register once: `claude mcp add --scope user replmux -- replmux mcp`, then start a new session.
+- Tools: `repl-manage` (create, list, connect, delete) and `repl` (name + code). Create a named
+  workspace, load data once, reuse it across calls, delete it at the end.
+- A value shows only when the call is one bare expression; otherwise `print` it.
+- Output is never truncated: slice or summarize big values.
+- Never run an endless loop in the default worker: it cannot be interrupted, and it blocks every
+  other call until you delete that workspace (state lost). Test record: `.tickets/rep-icbz.md`.
+
 - Read [`SKILL.md`](SKILL.md) for usage.
 - Rust CLI and protocol client: `cli/`
 - Minimal Python worker: `cli/assets/python_minimal_kernel.py`

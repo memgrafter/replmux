@@ -3,7 +3,7 @@ id: rep-ip1m
 status: open
 open: true
 deps: []
-links: [mul-igbo]
+links: [mul-igbo, rep-1gph]
 created: 2026-07-29T22:58:29Z
 type: bug
 priority: 1
