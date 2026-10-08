@@ -4,9 +4,14 @@ Replmux gives agents named, persistent Jupyter workspaces. Preserve state across
 calls; use separate names for isolation and shared names for deliberate
 collaboration.
 
-## Claude Code, cut to the chase
+## MCP server (Claude Code, Codex), cut to the chase
 
-- Register once: `claude mcp add --scope user replmux -- replmux mcp`, then start a new session.
+- It is the `replmux mcp` subcommand (stdio); code in `cli/src/mcp.rs`, entry `cli/src/main.rs`.
+- Register once, then start a new session:
+  - Claude Code: `claude mcp add --scope user replmux -- replmux mcp`; check `claude mcp get replmux`.
+  - Codex: `codex mcp add replmux -- replmux mcp`; check `codex mcp get replmux` or `/mcp`.
+- Worker Python is `python3` and needs `pyzmq`; to use another, add
+  `--env REPLMUX_PYTHON=<venv>/bin/python` before the `--` (both CLIs).
 - Tools: `repl-manage` (create, list, connect, delete) and `repl` (name + code). Create a named
   workspace, load data once, reuse it across calls, delete it at the end.
 - A value shows only when the call is one bare expression; otherwise `print` it.
